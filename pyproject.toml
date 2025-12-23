@@ -1,0 +1,37 @@
+# pyproject.toml
+
+[project]
+name = "gfm-landcover-mapping"
+version = "0.1.0"
+description = "Land-cover mapping with foundation models"
+readme = "README.md"
+requires-python = ">=3.11"
+# Dependencies are now managed by pixi.toml
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+# --- TOOL CONFIGURATION (Keep all of this!) ---
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+fix = true
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+pretty = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

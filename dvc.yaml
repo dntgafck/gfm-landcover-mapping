@@ -1,0 +1,43 @@
+stages:
+  load_aoi:
+    cmd: python -m scripts.load_data_pipeline.01_aoi
+    deps:
+      - scripts/load_data_pipeline/01_aoi.py
+      - params.yaml
+    params:
+      - aoi
+    outs:
+      - data/aoi.geojson
+
+  generate_grid:
+    cmd: python -m scripts.load_data_pipeline.02_grid
+    deps:
+      - scripts/load_data_pipeline/02_grid.py
+      - data/aoi.geojson
+      - params.yaml
+    params:
+      - preprocessing
+    outs:
+      - data/grid.geojson
+
+  download:
+    cmd: python -m scripts.load_data_pipeline.03_download
+    deps:
+      - scripts/load_data_pipeline/03_download.py
+      - data/grid.geojson
+      - params.yaml
+    params:
+      - download
+    outs:
+      - data/imagery
+
+  label:
+    cmd: python -m scripts.load_data_pipeline.04_label
+    deps:
+      - scripts/load_data_pipeline/04_label.py
+      - data/imagery
+      - params.yaml
+    params:
+      - labels
+    outs:
+      - data/labels

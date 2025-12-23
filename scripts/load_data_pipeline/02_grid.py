@@ -1,0 +1,56 @@
+from pathlib import Path
+
+import geopandas as gpd
+import pandas as pd
+import yaml
+
+from scripts.load_data.processors import GridPreprocessor
+
+
+def load_params():
+    with open("params.yaml") as f:
+        return yaml.safe_load(f)
+
+
+def main():
+    params = load_params()
+    grid_size = params["preprocessing"]["grid_size_km"]
+
+    aoi_path = Path("data/aoi.geojson")
+    if not aoi_path.exists():
+        raise FileNotFoundError(f"{aoi_path} not found. Run existing stages first.")
+
+    aoi_gdf = gpd.read_file(aoi_path)
+
+    all_grids = []
+
+    for _idx, row in aoi_gdf.iterrows():
+        # Create a single-row GDF for the processor
+        single_gdf = gpd.GeoDataFrame([row], crs=aoi_gdf.crs)
+
+        # Generate grid
+        grid = GridPreprocessor.generate_grid(single_gdf, grid_size)
+
+        # Propagate metadata (like iso_a3) to the grid cells
+        # The generate_grid returns new geometries. We should attach the parent attributes.
+        # We can do a spatial join or just assign if we do it per feature.
+        # Assigning is safer per feature loop.
+        for col in row.index:
+            if col != "geometry":
+                grid[col] = row[col]
+
+        all_grids.append(grid)
+
+    if not all_grids:
+        print("No grids generated.")
+        return
+
+    final_grid = gpd.GeoDataFrame(pd.concat(all_grids, ignore_index=True), crs=all_grids[0].crs)
+
+    out_path = Path("data/grid.geojson")
+    final_grid.to_file(out_path, driver="GeoJSON")
+    print(f"Saved grid to {out_path} with {len(final_grid)} cells.")
+
+
+if __name__ == "__main__":
+    main()

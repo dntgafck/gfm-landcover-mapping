@@ -1,0 +1,106 @@
+schema: '2.0'
+stages:
+  load_aoi:
+    cmd: python -m scripts.pipeline.01_aoi
+    deps:
+    - path: params.yaml
+      hash: md5
+      md5: 3af413d090676d963dc23cbe7b444990
+      size: 415
+    - path: scripts/pipeline/01_aoi.py
+      hash: md5
+      md5: 70d613bfc0ba57081aed5ed8db10ca2e
+      size: 1629
+    params:
+      params.yaml:
+        aoi:
+          name: Monaco
+          subregion:
+          iso_a3:
+          source:
+            https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_0_countries.geojson
+    outs:
+    - path: data/aoi.geojson
+      hash: md5
+      md5: 8d1e7652f911ef63a9a33080873cefe0
+      size: 658
+  generate_grid:
+    cmd: python -m scripts.pipeline.02_grid
+    deps:
+    - path: data/aoi.geojson
+      hash: md5
+      md5: 8d1e7652f911ef63a9a33080873cefe0
+      size: 658
+    - path: params.yaml
+      hash: md5
+      md5: 3af413d090676d963dc23cbe7b444990
+      size: 415
+    - path: scripts/pipeline/02_grid.py
+      hash: md5
+      md5: eec8277e90145cbc66af5b18e791eeb8
+      size: 1627
+    params:
+      params.yaml:
+        preprocessing:
+          grid_size_km: 1
+          resolution_m: 10
+    outs:
+    - path: data/grid.geojson
+      hash: md5
+      md5: 858e32c3e57d8f0a157250ea66753432
+      size: 8219
+  download:
+    cmd: python -m scripts.pipeline.03_download
+    deps:
+    - path: data/grid.geojson
+      hash: md5
+      md5: 858e32c3e57d8f0a157250ea66753432
+      size: 8219
+    - path: params.yaml
+      hash: md5
+      md5: 3af413d090676d963dc23cbe7b444990
+      size: 415
+    - path: scripts/pipeline/03_download.py
+      hash: md5
+      md5: 19049849ebf8c1a04874fd96a78b88b9
+      size: 1447
+    params:
+      params.yaml:
+        download:
+          start_date: '2021-07-01'
+          end_date: '2021-07-31'
+          output_dir: data/imagery
+    outs:
+    - path: data/imagery
+      hash: md5
+      md5: faba393e48bded80a38a4bd5a9ce9c8c.dir
+      size: 2329064
+      nfiles: 38
+  label:
+    cmd: python -m scripts.pipeline.04_label
+    deps:
+    - path: data/imagery
+      hash: md5
+      md5: faba393e48bded80a38a4bd5a9ce9c8c.dir
+      size: 2329064
+      nfiles: 38
+    - path: params.yaml
+      hash: md5
+      md5: 3af413d090676d963dc23cbe7b444990
+      size: 415
+    - path: scripts/pipeline/04_label.py
+      hash: md5
+      md5: 8ce56e9b4143c5ee0ae162ecf88b4bb8
+      size: 2835
+    params:
+      params.yaml:
+        labels:
+          version: v200
+          output_dir: data/labels
+          cache_dir: data/worldcover/cache
+    outs:
+    - path: data/labels
+      hash: md5
+      md5: c68c676f094987c57631a90896dcee0a.dir
+      size: 40936
+      nfiles: 19
