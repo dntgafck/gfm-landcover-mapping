@@ -7,7 +7,7 @@ from scripts.load_data.worldcover_labels import WorldCoverLabeler, WorldCoverS3C
 
 
 def load_params():
-    with open("params.yaml") as f:
+    with open("conf/load_data/params.yaml") as f:
         return yaml.safe_load(f)
 
 
@@ -44,6 +44,7 @@ def main():
     # Walk through data/imagery
     input_root = Path(download_params["output_dir"])
     output_root = Path(label_params["output_dir"])
+    output_root.mkdir(parents=True, exist_ok=True)
 
     if not input_root.exists():
         print(f"Input directory {input_root} does not exist.")

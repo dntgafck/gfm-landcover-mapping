@@ -1,20 +1,25 @@
 schema: '2.0'
 stages:
   load_aoi:
-    cmd: python -m scripts.pipeline.01_aoi
+    cmd: python -m scripts.load_data.pipeline.01_aoi
     deps:
-    - path: params.yaml
+    - path: conf/load_data/params.yaml
       hash: md5
-      md5: 3af413d090676d963dc23cbe7b444990
-      size: 415
-    - path: scripts/pipeline/01_aoi.py
+      md5: 7c0da28535aad4eabd600dba487d0c14
+      size: 425
+    - path: data/worldcover/v200/2021/esa_worldcover_grid.geojson
       hash: md5
-      md5: 70d613bfc0ba57081aed5ed8db10ca2e
-      size: 1629
+      md5: ff83a264e6364861d4e71681b868f886
+      size: 543674
+    - path: scripts/load_data/pipeline/01_aoi.py
+      hash: md5
+      md5: b37ec4009db806e396d90d1a5322695b
+      size: 1590
     params:
-      params.yaml:
+      conf/load_data/params.yaml:
         aoi:
-          name: Monaco
+          name:
+          - Liechtenstein
           subregion:
           iso_a3:
           source:
@@ -22,78 +27,78 @@ stages:
     outs:
     - path: data/aoi.geojson
       hash: md5
-      md5: 8d1e7652f911ef63a9a33080873cefe0
-      size: 658
+      md5: 4886a839b66f9eb486a507504718f53f
+      size: 1082
   generate_grid:
-    cmd: python -m scripts.pipeline.02_grid
+    cmd: python -m scripts.load_data.pipeline.02_grid
     deps:
+    - path: conf/load_data/params.yaml
+      hash: md5
+      md5: 7c0da28535aad4eabd600dba487d0c14
+      size: 425
     - path: data/aoi.geojson
       hash: md5
-      md5: 8d1e7652f911ef63a9a33080873cefe0
-      size: 658
-    - path: params.yaml
+      md5: 4886a839b66f9eb486a507504718f53f
+      size: 1082
+    - path: scripts/load_data/pipeline/02_grid.py
       hash: md5
-      md5: 3af413d090676d963dc23cbe7b444990
-      size: 415
-    - path: scripts/pipeline/02_grid.py
-      hash: md5
-      md5: eec8277e90145cbc66af5b18e791eeb8
-      size: 1627
+      md5: fe8385893e0109e691aca7368f116295
+      size: 1591
     params:
-      params.yaml:
+      conf/load_data/params.yaml:
         preprocessing:
-          grid_size_km: 1
+          grid_size_km: 10
           resolution_m: 10
     outs:
     - path: data/grid.geojson
       hash: md5
-      md5: 858e32c3e57d8f0a157250ea66753432
-      size: 8219
+      md5: b612a3a9f6459a1893cc7bde1e20e975
+      size: 1016
   download:
-    cmd: python -m scripts.pipeline.03_download
+    cmd: python -m scripts.load_data.pipeline.03_download
     deps:
+    - path: conf/load_data/params.yaml
+      hash: md5
+      md5: 7c0da28535aad4eabd600dba487d0c14
+      size: 425
     - path: data/grid.geojson
       hash: md5
-      md5: 858e32c3e57d8f0a157250ea66753432
-      size: 8219
-    - path: params.yaml
+      md5: b612a3a9f6459a1893cc7bde1e20e975
+      size: 1016
+    - path: scripts/load_data/pipeline/03_download.py
       hash: md5
-      md5: 3af413d090676d963dc23cbe7b444990
-      size: 415
-    - path: scripts/pipeline/03_download.py
-      hash: md5
-      md5: 19049849ebf8c1a04874fd96a78b88b9
-      size: 1447
+      md5: c58c4036d2b8a7ca20a84a7fd1326592
+      size: 1409
     params:
-      params.yaml:
+      conf/load_data/params.yaml:
         download:
-          start_date: '2021-07-01'
-          end_date: '2021-07-31'
+          start_date: '2021-05-01'
+          end_date: '2021-09-30'
           output_dir: data/imagery
     outs:
     - path: data/imagery
       hash: md5
-      md5: faba393e48bded80a38a4bd5a9ce9c8c.dir
-      size: 2329064
-      nfiles: 38
+      md5: 1b278254d2d2c35c34328051c32bc284.dir
+      size: 21216489
+      nfiles: 4
   label:
-    cmd: python -m scripts.pipeline.04_label
+    cmd: python -m scripts.load_data.pipeline.04_label
     deps:
+    - path: conf/load_data/params.yaml
+      hash: md5
+      md5: 7c0da28535aad4eabd600dba487d0c14
+      size: 425
     - path: data/imagery
       hash: md5
-      md5: faba393e48bded80a38a4bd5a9ce9c8c.dir
-      size: 2329064
-      nfiles: 38
-    - path: params.yaml
+      md5: 1b278254d2d2c35c34328051c32bc284.dir
+      size: 21216489
+      nfiles: 4
+    - path: scripts/load_data/pipeline/04_label.py
       hash: md5
-      md5: 3af413d090676d963dc23cbe7b444990
-      size: 415
-    - path: scripts/pipeline/04_label.py
-      hash: md5
-      md5: 8ce56e9b4143c5ee0ae162ecf88b4bb8
-      size: 2835
+      md5: 5bafae3930c16232f50b2d168ca131b0
+      size: 2788
     params:
-      params.yaml:
+      conf/load_data/params.yaml:
         labels:
           version: v200
           output_dir: data/labels
@@ -101,6 +106,6 @@ stages:
     outs:
     - path: data/labels
       hash: md5
-      md5: c68c676f094987c57631a90896dcee0a.dir
-      size: 40936
-      nfiles: 19
+      md5: bb643cfb5b9429dca87ac449bdea5c4c.dir
+      size: 174475
+      nfiles: 2

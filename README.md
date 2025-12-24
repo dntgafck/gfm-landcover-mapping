@@ -1,7 +1,5 @@
 # **Land-Cover Mapping with Geospatial Foundation Models**
 
-## Anton Ustinov
-
 Problem Statement
 
 This project investigates whether geospatial foundation models (GFMs)—large self-supervised transformers pretrained on global multispectral archives—can significantly improve the accuracy, label efficiency, and generalization of land-cover mapping from satellite imagery. Traditional land-cover classification requires extensive labeled datasets and regional models, limiting update frequency and global consistency. By fine-tuning GFMs on small labeled subsets of Sentinel-2 data, the project aims to determine how much labeling effort can be reduced while maintaining or improving classification performance. The results are relevant for environmental monitoring, agriculture, climate modeling, and urban-planning systems that depend on timely, high-resolution land-cover maps.

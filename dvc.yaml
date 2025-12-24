@@ -1,43 +1,48 @@
 stages:
   load_aoi:
-    cmd: python -m scripts.load_data_pipeline.01_aoi
+    cmd: python -m scripts.load_data.pipeline.01_aoi
     deps:
-      - scripts/load_data_pipeline/01_aoi.py
-      - params.yaml
+      - scripts/load_data/pipeline/01_aoi.py
+      - conf/load_data/params.yaml
+      - data/worldcover/v200/2021/esa_worldcover_grid.geojson
     params:
-      - aoi
+      - conf/load_data/params.yaml:
+        - aoi
     outs:
       - data/aoi.geojson
 
   generate_grid:
-    cmd: python -m scripts.load_data_pipeline.02_grid
+    cmd: python -m scripts.load_data.pipeline.02_grid
     deps:
-      - scripts/load_data_pipeline/02_grid.py
+      - scripts/load_data/pipeline/02_grid.py
       - data/aoi.geojson
-      - params.yaml
+      - conf/load_data/params.yaml
     params:
-      - preprocessing
+      - conf/load_data/params.yaml:
+        - preprocessing
     outs:
       - data/grid.geojson
 
   download:
-    cmd: python -m scripts.load_data_pipeline.03_download
+    cmd: python -m scripts.load_data.pipeline.03_download
     deps:
-      - scripts/load_data_pipeline/03_download.py
+      - scripts/load_data/pipeline/03_download.py
       - data/grid.geojson
-      - params.yaml
+      - conf/load_data/params.yaml
     params:
-      - download
+      - conf/load_data/params.yaml:
+        - download
     outs:
       - data/imagery
 
   label:
-    cmd: python -m scripts.load_data_pipeline.04_label
+    cmd: python -m scripts.load_data.pipeline.04_label
     deps:
-      - scripts/load_data_pipeline/04_label.py
+      - scripts/load_data/pipeline/04_label.py
       - data/imagery
-      - params.yaml
+      - conf/load_data/params.yaml
     params:
-      - labels
+      - conf/load_data/params.yaml:
+        - labels
     outs:
       - data/labels

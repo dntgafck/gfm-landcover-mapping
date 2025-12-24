@@ -6,7 +6,7 @@ from scripts.load_data.aoi import AOILoader
 
 
 def load_params():
-    with open("params.yaml") as f:
+    with open("conf/load_data/params.yaml") as f:
         return yaml.safe_load(f)
 
 
