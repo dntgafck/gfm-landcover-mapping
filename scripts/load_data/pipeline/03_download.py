@@ -39,8 +39,8 @@ def main():
         print(f"Processing {iso_a3} with {len(group)} tiles...")
 
         # Define output for this country
-        # data/imagery/<ISO_A3>/sh
-        country_out = Path(download_params["output_dir"]) / iso_a3 / "sh"
+        # data/<ISO_A3>
+        country_out = Path(download_params["output_dir"]) / iso_a3
 
         loader.download_batch(
             input_data=group,

@@ -51,29 +51,33 @@ def main():
         return
 
     count = 0
-    # Walk: data/imagery/<ISO_A3>/sh/tile_X/response.tiff
+    # Walk: data/<ISO_A3>/<cache_key>/spectral.tif
     for root, _dirs, files in os.walk(input_root):
         for file in files:
-            if file == "response.tiff":
+            if file == "spectral.tif":
                 resp_path = Path(root) / file
 
-                # Determine relative path to mirror structure
-                rel_path = resp_path.relative_to(input_root)
-                # rel_path is <ISO_A3>/sh/tile_X/response.tiff
+                # Check if we are in a valid cache key directory (optional additional check)
 
-                # Construct output path
-                # data/labels/<ISO_A3>/sh/tile_X/labels.tiff
-                out_path = output_root / rel_path.parent / "labels.tiff"
+                # Construct output path: mirror directory structure in labels output dir
+                # data/imagery/<ISO_A3>/<cache_key>/response.tiff
+                # -> data/labels/<ISO_A3>/<cache_key>/labels.tiff
+
+                rel_path = resp_path.relative_to(input_root)
+                out_dir = output_root / rel_path.parent
+                out_dir.mkdir(parents=True, exist_ok=True)
+
+                out_path = out_dir / "labels.tiff"
 
                 if out_path.exists():
                     continue
 
-                print(f"Generating labels for {rel_path}...")
+                print(f"Generating labels for {resp_path}...")
                 try:
                     labeler.write_labels_for_response_tiff(str(resp_path), out_path=str(out_path))
                     count += 1
                 except Exception as e:
-                    print(f"Failed to generate label for {rel_path}: {e}")
+                    print(f"Failed to generate label for {resp_path}: {e}")
 
     print(f"Generated {count} label files.")
 

@@ -32,4 +32,8 @@ def get_config():
     config.sh_token_url = CDSE_TOKEN_URL
     config.sh_process_api_url = f"{CDSE_BASE_URL}/api/v1/process"
 
+    # Increase retries for 429 errors
+    config.max_download_attempts = 10
+    config.download_sleep_time = 5.0
+
     return config

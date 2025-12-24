@@ -4,12 +4,14 @@ stages:
     deps:
       - scripts/load_data/pipeline/01_aoi.py
       - conf/load_data/params.yaml
-      - data/worldcover/v200/2021/esa_worldcover_grid.geojson
+      - data/natural-earth/ne_10m_admin_0_countries.geojson
     params:
       - conf/load_data/params.yaml:
         - aoi
     outs:
-      - data/aoi.geojson
+      - data/aoi.geojson:
+          cache: true
+          persist: true
 
   generate_grid:
     cmd: python -m scripts.load_data.pipeline.02_grid
@@ -23,26 +25,32 @@ stages:
     outs:
       - data/grid.geojson
 
-  download:
+  download_imagery:
     cmd: python -m scripts.load_data.pipeline.03_download
     deps:
       - scripts/load_data/pipeline/03_download.py
+      - scripts/load_data/loader.py
       - data/grid.geojson
       - conf/load_data/params.yaml
     params:
       - conf/load_data/params.yaml:
         - download
+        - preprocessing
     outs:
-      - data/imagery
+      - data/imagery:
+          persist: true
 
-  label:
+  generate_labels:
     cmd: python -m scripts.load_data.pipeline.04_label
     deps:
       - scripts/load_data/pipeline/04_label.py
       - data/imagery
+      - data/worldcover/v200/2021/esa_worldcover_grid.geojson
       - conf/load_data/params.yaml
     params:
       - conf/load_data/params.yaml:
         - labels
+        - download
     outs:
-      - data/labels
+      - data/labels:
+          persist: true

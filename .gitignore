@@ -220,4 +220,5 @@ __marimo__/
 data
 
 AGENTS.md
-gfm-landcover-mapping-7122d6b900db.json
+
+.DS_Store

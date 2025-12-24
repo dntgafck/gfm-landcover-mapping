@@ -1,4 +1,5 @@
 import logging
+from typing import cast
 
 import geopandas as gpd
 
@@ -40,7 +41,24 @@ class AOILoader:
 
         # Drop empty geometries
         gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
+
+        # Patch ISO_A3 if needed (e.g. France is -99 in some datasets)
+        if "ISO_A3" in gdf.columns:
+            gdf["ISO_A3"] = gdf.apply(self._resolve_iso_a3, axis=1)
+
         return gdf
+
+    @staticmethod
+    def _resolve_iso_a3(row) -> str | None:
+        """
+        Resolve ISO_A3 code, falling back to ADM0_A3 if ISO_A3 is invalid (-99).
+        """
+        iso = cast(str | None, row.get("ISO_A3"))
+        # Check for invalid -99 (often as string "-99" or integer -99)
+        if iso == "-99" or iso == -99:
+            # Fallback to ADM0_A3 if available
+            return cast(str | None, row.get("ADM0_A3", iso))
+        return iso
 
     @staticmethod
     def _filter_by_values(series, values: list[str], substring_match: bool = False):

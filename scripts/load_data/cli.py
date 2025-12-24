@@ -136,14 +136,25 @@ def main(
 
                 if not skip_label and labeler:
                     logger.info("Starting labeling for input file batch...")
-                    for _root, _, files in os.walk(output_folder):
-                        for file in files:
-                            if file == "response.tiff":
-                                # SentinelHubRequest default output name is "default.tiff" or
-                                # "response.tiff".
-                                # Based on loader.py, we expect
-                                # output_folder/tile_{idx}/default.tiff
-                                pass
+                    # Iterate over subdirectories in output_folder
+                    for item in os.listdir(output_folder):
+                        item_path = os.path.join(output_folder, item)
+
+                        if os.path.isdir(item_path):
+                            response_tiff_path = os.path.join(item_path, "response.tiff")
+                            if os.path.exists(response_tiff_path):
+                                label_path = os.path.join(item_path, "labels.tiff")
+
+                                if os.path.exists(label_path):
+                                    continue
+
+                                try:
+                                    labeler.write_labels_for_response_tiff(
+                                        response_tiff_path, out_path=label_path
+                                    )
+                                    logger.info(f"Generated labels for {item}")
+                                except Exception as e:
+                                    logger.error(f"Failed to label {item}: {e}")
 
         elif iso_a3:
             logger.info("Using AOI Loader parameters...")
@@ -192,7 +203,7 @@ def main(
                     download_gdf = GridPreprocessor.generate_grid(country_gdf, grid_size)
 
                 # Download Data
-                sh_output_dir = os.path.join(country_dir, "sh")
+                # Flattened structure: data/<ISO_A3>/<cache_key>/
                 if not download_gdf.empty:
                     if loader is None:
                         loader = SentinelDataLoader()
@@ -201,52 +212,35 @@ def main(
                         input_data=download_gdf,
                         time_interval=(start_date, end_date),
                         resolution=resolution,
-                        output_folder=sh_output_dir,
+                        output_folder=country_dir,
                     )
 
                     # Labeling Step
                     if not skip_label and labeler:
                         logger.info(f"Generating labels for {country_iso}...")
-                        # Walk sh_output_dir to find downloaded files
-                        # Structure: sh_output_dir/tile_{idx}/default.tiff
-                        # (Sentinel Hub SDK default behavior)
-                        # OR loader.py: file_name = f"tile_{idx}.tiff" check -> download_data ->
-                        # output_folder=join(..., f"tile_{idx}")
-                        # Let's verify loader.py behavior.
 
-                        labels_output_dir = os.path.join(country_dir, "labels")
-                        os.makedirs(labels_output_dir, exist_ok=True)
+                        # Iterate over subdirectories in country_dir
+                        # Each subdirectory is potentially a cache_key folder
+                        for item in os.listdir(country_dir):
+                            item_path = os.path.join(country_dir, item)
 
-                        for root, _dirs, files in os.walk(sh_output_dir):
-                            for file in files:
-                                if file.endswith(".tiff") or file.endswith(".tif"):
-                                    # We found a TIFF.
-                                    # Logic: replicate structure in labels/
-                                    # If path is .../sh/tile_0/default.tiff
-                                    # relative is tile_0/default.tiff
-                                    # label path: .../labels/tile_0/labels.tiff
-
-                                    abs_image_path = os.path.join(root, file)
-                                    rel_path = os.path.relpath(abs_image_path, sh_output_dir)
-
-                                    # Determine label output path
-                                    # We want to keep the tile structure if it exists
-                                    parent_dir = os.path.dirname(rel_path)  # e.g. tile_0
-
-                                    label_tile_dir = os.path.join(labels_output_dir, parent_dir)
-                                    os.makedirs(label_tile_dir, exist_ok=True)
-
-                                    label_path = os.path.join(label_tile_dir, "labels.tiff")
+                            if os.path.isdir(item_path):
+                                # Check if it's a valid data directory (has response.tiff)
+                                response_tiff_path = os.path.join(item_path, "response.tiff")
+                                if os.path.exists(response_tiff_path):
+                                    # Label output path: co-located with response.tiff
+                                    label_path = os.path.join(item_path, "labels.tiff")
 
                                     if os.path.exists(label_path):
                                         continue
 
                                     try:
                                         labeler.write_labels_for_response_tiff(
-                                            abs_image_path, out_path=label_path
+                                            response_tiff_path, out_path=label_path
                                         )
+                                        logger.info(f"Generated labels for {item}")
                                     except Exception as e:
-                                        logger.error(f"Failed to label {rel_path}: {e}")
+                                        logger.error(f"Failed to label {item}: {e}")
 
                 else:
                     logger.warning(f"No valid geometry/grid for {country_iso} to download.")

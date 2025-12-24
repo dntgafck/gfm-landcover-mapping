@@ -1,8 +1,12 @@
+import hashlib
+import json
 import logging
 import os
+import shutil
+from datetime import datetime
+from typing import Any
 
 import geopandas as gpd
-import numpy as np
 from sentinelhub import (
     CRS,
     BBox,
@@ -43,15 +47,83 @@ class SentinelDataLoader:
         //VERSION=3
         function setup() {
           return {
-            input: ["B02", "B03", "B04", "B08", "SCL"],
-            output: { bands: 5, sampleType: "FLOAT32" }
+            input: [
+              {
+                bands: ["B02", "B03", "B04", "B08"],
+                units: "REFLECTANCE"
+              },
+              {
+                bands: ["SCL", "dataMask"]
+              }
+            ],
+            output: [
+              {
+                id: "spectral",
+                bands: 4,
+                sampleType: "FLOAT32"
+              },
+              {
+                id: "scl",
+                bands: 1,
+                sampleType: "UINT8"
+              },
+              {
+                id: "mask",
+                bands: 1,
+                sampleType: "UINT8"
+              }
+            ]
           };
         }
 
         function evaluatePixel(sample) {
-          return [sample.B02, sample.B03, sample.B04, sample.B08, sample.SCL];
+          return {
+            spectral: [
+              sample.B02,
+              sample.B03,
+              sample.B04,
+              sample.B08
+            ],
+            scl: [sample.SCL],
+            mask: [sample.dataMask]
+          };
         }
         """
+
+    def compute_cache_key(
+        self,
+        bbox: BBox,
+        time_interval: tuple[str, str],
+        resolution: int,
+        collection_name: str,
+        evalscript: str,
+    ) -> str:
+        """
+        Computes a deterministic SHA256 cache key based on all request parameters.
+        """
+        # Quantize bbox to 6 decimal places to handle float precision issues
+        # BBox object is iterable and yields (minx, miny, maxx, maxy)
+        bbox_list = [round(x, 6) for x in bbox]
+
+        # Create a dictionary of parameters
+        params = {
+            "bbox": bbox_list,
+            "crs": str(bbox.crs),
+            "start_date": time_interval[0],
+            "end_date": time_interval[1],
+            "collection": collection_name,
+            "resolution": resolution,
+            "evalscript": evalscript,
+            "mosaicking_order": "mostRecent",  # Hardcoded in current implementation
+        }
+
+        # Validate that evalscript is not empty
+        if not evalscript or not evalscript.strip():
+            raise ValueError("Evalscript cannot be empty for cache key generation")
+
+        # Serializing to JSON with sorting keys ensuring determinism
+        params_str = json.dumps(params, sort_keys=True)
+        return hashlib.sha256(params_str.encode("utf-8")).hexdigest()
 
     def download_data(
         self,
@@ -59,7 +131,7 @@ class SentinelDataLoader:
         time_interval: tuple[str, str],
         resolution: int = 10,
         output_folder: str = "sh_out",
-    ) -> np.ndarray:
+    ) -> list | Any:
         """
         Downloads data for a given bounding box and time interval.
         """
@@ -73,9 +145,18 @@ class SentinelDataLoader:
                     data_collection=self.CDSE_S2_L2A,
                     time_interval=time_interval,
                     mosaicking_order="mostRecent",
-                )
+                ),
+                SentinelHubRequest.input_data(
+                    data_collection=self.CDSE_S2_L2A,
+                    time_interval=time_interval,
+                    mosaicking_order="mostRecent",
+                ),
             ],
-            responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
+            responses=[
+                SentinelHubRequest.output_response("spectral", MimeType.TIFF),
+                SentinelHubRequest.output_response("scl", MimeType.TIFF),
+                SentinelHubRequest.output_response("mask", MimeType.TIFF),
+            ],
             bbox=aoi_bbox,
             size=size,
             config=self.config,
@@ -83,10 +164,7 @@ class SentinelDataLoader:
         )
 
         data = request.get_data(save_data=True)
-        arr = data[0]
-
-        logger.info(f"Downloaded data shape: {arr.shape}")
-        return arr
+        return data
 
     def download_batch(
         self,
@@ -115,26 +193,111 @@ class SentinelDataLoader:
         for idx, row in tqdm(gdf.iterrows(), total=len(gdf), desc="Downloading tiles"):
             try:
                 # Use total_bounds of the geometry
-                # row.geometry.bounds gives (minx, miny, maxx, maxy)
                 bounds = row.geometry.bounds
+                aoi_bbox = BBox(bbox=bounds, crs=CRS.WGS84)
 
-                # Construct file name
-                if id_column and id_column in row:
-                    file_name = f"tile_{row[id_column]}.tiff"
+                # Determine tile ID (for logging/manifest only, not directory structure)
+                if id_column and id_column in gdf.columns:
+                    tile_id = str(row[id_column])
                 else:
-                    file_name = f"tile_{idx}.tiff"
+                    tile_id = str(idx)
 
-                # Check if already exists to skip (simple caching)
-                output_path = os.path.join(output_folder, file_name)
-                if os.path.exists(output_path):
+                # Parameters for cache key
+                evalscript = self.get_evalscript()
+                collection_name = "SENTINEL2_L2A_CDSE"
+
+                # Compute cache key
+                cache_key = self.compute_cache_key(
+                    bbox=aoi_bbox,
+                    time_interval=time_interval,
+                    resolution=resolution,
+                    collection_name=collection_name,
+                    evalscript=evalscript,
+                )
+
+                # Target directory: output_folder/<cache_key>
+                target_dir = os.path.join(output_folder, cache_key)
+
+                # 1. Check idempotency
+                # We check for spectral.tif because response.tiff is only for single-file outputs
+                if os.path.exists(os.path.join(target_dir, "spectral.tif")):
+                    logger.info(f"Tile {tile_id} (key: {cache_key}) exists. Skipping.")
                     continue
 
+                # 2. Download to a temporary location
+                # We use a temp dir specific to this download to avoid collisions
+                temp_download_dir = os.path.join(output_folder, f"temp_{cache_key}")
+                if os.path.exists(temp_download_dir):
+                    shutil.rmtree(temp_download_dir)
+                os.makedirs(temp_download_dir)
+
+                logger.info(f"Downloading tile {tile_id}...")
                 self.download_data(
                     bbox_coords=bounds,
                     time_interval=time_interval,
                     resolution=resolution,
-                    output_folder=os.path.join(output_folder, f"tile_{idx}"),
+                    output_folder=temp_download_dir,
                 )
+
+                # 3. Locate the result
+                # SentinelHubRequest creates a subfolder with the request_id
+                # We expect exactly one subfolder in our temp dir
+                subfolders = [
+                    f
+                    for f in os.listdir(temp_download_dir)
+                    if os.path.isdir(os.path.join(temp_download_dir, f))
+                ]
+                if not subfolders:
+                    raise FileNotFoundError("Sentinel Hub did not create an output directory.")
+
+                sh_result_dir = os.path.join(temp_download_dir, subfolders[0])
+
+                # 4. Move to target location (atomic-ish rename)
+                if os.path.exists(target_dir):
+                    shutil.rmtree(target_dir)
+
+                shutil.move(sh_result_dir, target_dir)
+
+                # 4.5 Extract tar if present
+                tar_path = os.path.join(target_dir, "response.tar")
+                if os.path.exists(tar_path):
+                    logger.info(f"Extracting {tar_path}...")
+                    import tarfile
+
+                    with tarfile.open(tar_path) as tar:
+                        tar.extractall(path=target_dir)
+                    os.remove(tar_path)
+
+                # Cleanup temp dir
+                shutil.rmtree(temp_download_dir)
+
+                # 5. Write manifest.json
+                manifest = {
+                    "aoi_id": tile_id,
+                    "tile_id": tile_id,
+                    "bbox": [round(x, 6) for x in bounds],
+                    "time": {"start": time_interval[0], "end": time_interval[1]},
+                    "collection": collection_name,
+                    "resolution_m": resolution,
+                    "crs": "EPSG:4326",
+                    "outputs": {
+                        "spectral": ["B02", "B03", "B04", "B08"],
+                        "scl": ["SCL"],
+                        "mask": ["dataMask"],
+                    },
+                    "mosaic": "mostRecent",
+                    "evalscript_sha256": hashlib.sha256(evalscript.encode("utf-8")).hexdigest(),
+                    "cache_key": cache_key,
+                    "created_utc": datetime.utcnow().isoformat(),
+                }
+
+                with open(os.path.join(target_dir, "manifest.json"), "w") as f:
+                    json.dump(manifest, f, indent=2)
+
+                # 6. Ensure request.json exists (Sentinel Hub SDK usually writes it)
+                # If SDK writes it as request.json in the result dir, it's already there.
+
+                logger.info(f"Saved tile {tile_id} to {target_dir}")
 
             except Exception as e:
                 logger.error(f"Failed to download tile {idx}: {e}")
