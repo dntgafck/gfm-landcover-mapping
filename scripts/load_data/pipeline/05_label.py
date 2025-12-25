@@ -51,33 +51,36 @@ def main():
         return
 
     count = 0
-    # Walk: data/<ISO_A3>/<cache_key>/spectral.tif
+    # Walk: data/imagery/<ISO_A3>/<cache_key>/spectral.tif
     for root, _dirs, files in os.walk(input_root):
         for file in files:
             if file == "spectral.tif":
-                resp_path = Path(root) / file
-
-                # Check if we are in a valid cache key directory (optional additional check)
+                ref_path = Path(root) / file
 
                 # Construct output path: mirror directory structure in labels output dir
-                # data/imagery/<ISO_A3>/<cache_key>/response.tiff
-                # -> data/labels/<ISO_A3>/<cache_key>/labels.tiff
+                # data/imagery/<ISO_A3>/<cache_key>/spectral.tif
+                # -> data/labels/<ISO_A3>/<cache_key>/labels.tif
 
-                rel_path = resp_path.relative_to(input_root)
+                rel_path = ref_path.relative_to(input_root)
                 out_dir = output_root / rel_path.parent
                 out_dir.mkdir(parents=True, exist_ok=True)
 
-                out_path = out_dir / "labels.tiff"
+                out_path = out_dir / "labels.tif"
 
                 if out_path.exists():
                     continue
 
-                print(f"Generating labels for {resp_path}...")
+                print(f"Generating labels for {ref_path}...")
                 try:
-                    labeler.write_labels_for_response_tiff(str(resp_path), out_path=str(out_path))
+                    # This will perform hard assertions inside
+                    labeler.write_labels_for_image(str(ref_path), out_path=str(out_path))
                     count += 1
                 except Exception as e:
-                    print(f"Failed to generate label for {resp_path}: {e}")
+                    print(f"CRITICAL: Failed to generate aligned label for {ref_path}: {e}")
+                    # Fail fast as per requirements
+                    raise
+
+    print(f"Generated {count} label files.")
 
     print(f"Generated {count} label files.")
 

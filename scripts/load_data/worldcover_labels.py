@@ -87,10 +87,22 @@ class WorldCoverLabeler:
     def _tile_cache_path(self, tile_id: str) -> Path:
         return self.cache_dir / self._tile_filename(tile_id)
 
-    def tiles_for_bbox(self, bbox_ll: tuple[float, float, float, float]) -> list[str]:
+    def tiles_for_bounds(
+        self,
+        bounds: tuple[float, float, float, float],
+        crs: str | rasterio.crs.CRS,
+    ) -> list[str]:
         """
-        bbox_ll = (min_lon, min_lat, max_lon, max_lat) in EPSG:4326
+        Find tiles intersecting bounds in any CRS.
         """
+        if str(crs).upper() != "EPSG:4326":
+            from rasterio.warp import transform_bounds
+
+            # Be careful with CRS84 axis order: treat as (lon, lat)
+            bbox_ll = transform_bounds(crs, "EPSG:4326", *bounds)
+        else:
+            bbox_ll = bounds
+
         geom = box(*bbox_ll)
         hits = self.grid[self.grid.intersects(geom)]
         tiles = sorted(hits[self.tile_id_col].astype(str).unique().tolist())
@@ -112,99 +124,84 @@ class WorldCoverLabeler:
         return out
 
     @staticmethod
-    def _mosaic_tiles_over_bbox(
+    def _mosaic_tiles(
         tile_paths: list[Path],
-        bbox_ll: tuple[float, float, float, float],
     ):
         """
-        Mosaic tiles and crop to bbox (EPSG:4326).
-        Returns (array_2d, transform, crs).
+        Mosaic tiles in their native CRS.
+        Returns (array_2d, transform, crs, nodata).
         """
         srcs = [rasterio.open(str(p)) for p in tile_paths]
         try:
-            # Crop to bbox to reduce processing
-            mosaic, transform = merge(srcs, bounds=bbox_ll)
+            mosaic, transform = merge(srcs)
             crs = srcs[0].crs
+            nodata = srcs[0].nodata
             arr = mosaic[0]  # first band
-            return arr, transform, crs
+            return arr, transform, crs, nodata
         finally:
             for s in srcs:
                 s.close()
 
-    def write_labels_for_response_tiff(
+    def write_labels_for_image(
         self,
-        response_tiff_path: str,
-        out_path: str | None = None,
-        nodata_value: int = 0,
-        compress: str = "LZW",
+        image_path: str | Path,
+        out_path: str | Path | None = None,
+        dst_nodata: int = 0,
+        compress: str = "deflate",
     ) -> Path:
         """
-        Create labels.tiff aligned to Sentinel Hub response.tiff.
-
-        Parameters
-        ----------
-        response_tiff_path : str
-            Path to the Sentinel Hub tile (response.tiff).
-        out_path : Optional[str]
-            If None, writes next to response.tiff as labels.tiff
-        nodata_value : int
-            Output nodata (WorldCover commonly uses 0 for nodata)
-        compress : str
-            GeoTIFF compression
-
-        Returns
-        -------
-        Path to written labels GeoTIFF.
+        Create labels.tif aligned to a reference image (e.g. spectral.tif).
+        Follows strict pixel alignment requirements.
         """
-        response_tiff_path = str(response_tiff_path)
-        with rasterio.open(response_tiff_path) as ref:
+        image_path = Path(image_path)
+        with rasterio.open(str(image_path)) as ref:
             ref_crs = ref.crs
             ref_transform = ref.transform
             ref_w, ref_h = ref.width, ref.height
-            b = ref.bounds
+            ref_bounds = ref.bounds
 
         if ref_crs is None:
-            raise ValueError(f"Reference raster has no CRS: {response_tiff_path}")
+            raise ValueError(f"Reference raster has no CRS: {image_path}")
 
-        # Best practice: keep Sentinel Hub output in EPSG:4326 for simplicity here
-        if ref_crs.to_string() != "EPSG:4326":
-            raise ValueError(
-                f"Expected EPSG:4326 reference CRS, got {ref_crs}. "
-                "Configure Sentinel Hub request to return EPSG:4326."
-            )
-
-        bbox_ll = (b.left, b.bottom, b.right, b.top)
-
-        tile_ids = self.tiles_for_bbox(bbox_ll)
+        # Find intersecting tiles
+        tile_ids = self.tiles_for_bounds(ref_bounds, ref_crs)
         if not tile_ids:
-            raise RuntimeError(f"No WorldCover tiles found for bbox {bbox_ll}")
+            # If no tiles found, we return an empty (nodata) raster
+            # but usually this indicates an AOI outside WorldCover
+            import warnings
 
-        # Download only required tiles
-        tile_paths = [self._download_tile_if_missing(tid) for tid in tile_ids]
+            warnings.warn(
+                f"No WorldCover tiles found for image {image_path}. Outputting nodata.",
+                stacklevel=2,
+            )
+            tile_paths = []
+        else:
+            # Download required tiles
+            tile_paths = [self._download_tile_if_missing(tid) for tid in tile_ids]
 
-        # Mosaic over bbox
-        src_arr, src_transform, src_crs = self._mosaic_tiles_over_bbox(tile_paths, bbox_ll)
+        # Mosaic and Warp
+        dst = np.full((ref_h, ref_w), dst_nodata, dtype=np.uint8)
 
-        # Warp to reference grid
-        dst = np.full((ref_h, ref_w), nodata_value, dtype=np.uint8)
+        if tile_paths:
+            src_arr, src_transform, src_crs, src_nodata = self._mosaic_tiles(tile_paths)
 
-        reproject(
-            source=src_arr,
-            destination=dst,
-            src_transform=src_transform,
-            src_crs=src_crs,
-            dst_transform=ref_transform,
-            dst_crs=ref_crs,
-            dst_width=ref_w,
-            dst_height=ref_h,
-            resampling=Resampling.nearest,
-            src_nodata=None,
-            dst_nodata=nodata_value,
-        )
+            reproject(
+                source=src_arr,
+                destination=dst,
+                src_transform=src_transform,
+                src_crs=src_crs,
+                dst_transform=ref_transform,
+                dst_crs=ref_crs,
+                dst_width=ref_w,
+                dst_height=ref_h,
+                resampling=Resampling.nearest,
+                src_nodata=src_nodata,
+                dst_nodata=dst_nodata,
+            )
 
         # Output path
         if out_path is None:
-            out_path_obj = Path(response_tiff_path).parent / "labels.tiff"
+            out_path_obj = image_path.parent / "labels.tif"
         else:
             out_path_obj = Path(out_path)
 
@@ -218,15 +215,29 @@ class WorldCoverLabeler:
             "dtype": "uint8",
             "crs": ref_crs,
             "transform": ref_transform,
-            "nodata": nodata_value,
+            "nodata": dst_nodata,
             "compress": compress,
+            "predictor": 2,
             "tiled": True,
         }
 
         with rasterio.open(str(out_path_obj), "w", **profile) as dst_ds:
             dst_ds.write(dst, 1)
 
+        # Hard alignment assertions
+        with rasterio.open(str(out_path_obj)) as labels:
+            assert labels.crs == ref_crs, f"CRS mismatch: {labels.crs} != {ref_crs}"
+            assert (
+                labels.transform == ref_transform
+            ), f"Transform mismatch: {labels.transform} != {ref_transform}"
+            assert labels.width == ref_w, f"Width mismatch: {labels.width} != {ref_w}"
+            assert labels.height == ref_h, f"Height mismatch: {labels.height} != {ref_h}"
+
         return out_path_obj
+
+    def write_labels_for_response_tiff(self, *args, **kwargs):
+        """Deprecated: use write_labels_for_image"""
+        return self.write_labels_for_image(*args, **kwargs)
 
 
 def generate_labels_for_aoi_folder(
