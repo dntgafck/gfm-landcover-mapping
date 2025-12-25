@@ -42,6 +42,7 @@ dvc-gdrive = "*"
 
 [feature.dev.tasks]
 lint-all = "pre-commit run --all-files"
+test = "pytest"
 
 [environments]
 dev = ["dev"]

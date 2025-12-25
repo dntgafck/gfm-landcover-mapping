@@ -47,8 +47,8 @@ def main():
 
     final_grid = gpd.GeoDataFrame(pd.concat(all_grids, ignore_index=True), crs=all_grids[0].crs)
 
-    out_path = Path("data/grid.geojson")
-    final_grid.to_file(out_path, driver="GeoJSON")
+    out_path = Path("data/grid.gpkg")
+    final_grid.to_file(out_path, layer="grid", driver="GPKG")
     print(f"Saved grid to {out_path} with {len(final_grid)} cells.")
 
 

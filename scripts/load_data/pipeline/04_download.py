@@ -15,7 +15,7 @@ def main():
     params = load_params()
     download_params = params["download"]
 
-    grid_path = Path("data/grid.geojson")
+    grid_path = Path("data/grid_selected.gpkg")
     if not grid_path.exists():
         raise FileNotFoundError(f"{grid_path} not found.")
 

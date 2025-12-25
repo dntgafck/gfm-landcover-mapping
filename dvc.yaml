@@ -17,20 +17,36 @@ stages:
     cmd: python -m scripts.load_data.pipeline.02_grid
     deps:
       - scripts/load_data/pipeline/02_grid.py
+      - scripts/load_data/processors.py
       - data/aoi.geojson
       - conf/load_data/params.yaml
     params:
       - conf/load_data/params.yaml:
         - preprocessing
     outs:
-      - data/grid.geojson
+      - data/grid.gpkg
+
+  select_tiles:
+    cmd: python -m scripts.load_data.pipeline.03_select_tiles
+    deps:
+      - scripts/load_data/pipeline/03_select_tiles.py
+      - scripts/load_data/processors.py
+      - data/grid.gpkg
+      - conf/load_data/params.yaml
+    params:
+      - conf/load_data/params.yaml:
+        - sampling
+    outs:
+      - data/grid_selected.gpkg:
+          cache: true
+          persist: true
 
   download_imagery:
-    cmd: python -m scripts.load_data.pipeline.03_download
+    cmd: python -m scripts.load_data.pipeline.04_download
     deps:
-      - scripts/load_data/pipeline/03_download.py
+      - scripts/load_data/pipeline/04_download.py
       - scripts/load_data/loader.py
-      - data/grid.geojson
+      - data/grid_selected.gpkg
       - conf/load_data/params.yaml
     params:
       - conf/load_data/params.yaml:
@@ -41,9 +57,9 @@ stages:
           persist: true
 
   generate_labels:
-    cmd: python -m scripts.load_data.pipeline.04_label
+    cmd: python -m scripts.load_data.pipeline.05_label
     deps:
-      - scripts/load_data/pipeline/04_label.py
+      - scripts/load_data/pipeline/05_label.py
       - data/imagery
       - data/worldcover/v200/2021/esa_worldcover_grid.geojson
       - conf/load_data/params.yaml

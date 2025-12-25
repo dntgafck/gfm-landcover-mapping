@@ -4,7 +4,6 @@ import logging
 import os
 import shutil
 from datetime import datetime
-from typing import Any
 
 import geopandas as gpd
 from sentinelhub import (
@@ -13,12 +12,12 @@ from sentinelhub import (
     DataCollection,
     MimeType,
     SentinelHubRequest,
-    bbox_to_dimensions,
 )
 from tqdm import tqdm
 
 from .auth import get_config
 
+EU_CRS = CRS(3035)  # EPSG:3035
 # Setup logging
 logger = logging.getLogger(__name__)
 
@@ -28,12 +27,8 @@ class SentinelDataLoader:
     A class to handle data loading from Sentinel Hub.
     """
 
-    # Define Custom DataCollection for CDSE
-    # This forces the SDK to use the CDSE endpoint instead of the legacy Sentinel Hub URL
-    CDSE_S2_L2A = DataCollection.define(
-        "SENTINEL2_L2A_CDSE",
-        api_id="sentinel-2-l2a",
-        service_url="https://sh.dataspace.copernicus.eu",
+    CDSE_S2_L2A = DataCollection.SENTINEL2_L2A.define_from(
+        "CDSE_S2_L2A", service_url="https://sh.dataspace.copernicus.eu"
     )
 
     def __init__(self):
@@ -49,11 +44,7 @@ class SentinelDataLoader:
           return {
             input: [
               {
-                bands: ["B02", "B03", "B04", "B08"],
-                units: "REFLECTANCE"
-              },
-              {
-                bands: ["SCL", "dataMask"]
+                bands: ["B02", "B03", "B04", "B08", "SCL", "dataMask"]
               }
             ],
             output: [
@@ -131,12 +122,9 @@ class SentinelDataLoader:
         time_interval: tuple[str, str],
         resolution: int = 10,
         output_folder: str = "sh_out",
-    ) -> list | Any:
-        """
-        Downloads data for a given bounding box and time interval.
-        """
-        aoi_bbox = BBox(bbox=bbox_coords, crs=CRS.WGS84)
-        size = bbox_to_dimensions(aoi_bbox, resolution=resolution)
+    ):
+        # IMPORTANT: bbox must be in projected CRS
+        aoi_bbox = BBox(bbox=bbox_coords, crs=EU_CRS)
 
         request = SentinelHubRequest(
             evalscript=self.get_evalscript(),
@@ -145,12 +133,9 @@ class SentinelDataLoader:
                     data_collection=self.CDSE_S2_L2A,
                     time_interval=time_interval,
                     mosaicking_order="mostRecent",
-                ),
-                SentinelHubRequest.input_data(
-                    data_collection=self.CDSE_S2_L2A,
-                    time_interval=time_interval,
-                    mosaicking_order="mostRecent",
-                ),
+                    upsampling="NEAREST",
+                    downsampling="NEAREST",
+                )
             ],
             responses=[
                 SentinelHubRequest.output_response("spectral", MimeType.TIFF),
@@ -158,7 +143,7 @@ class SentinelDataLoader:
                 SentinelHubRequest.output_response("mask", MimeType.TIFF),
             ],
             bbox=aoi_bbox,
-            size=size,
+            resolution=(resolution, resolution),
             config=self.config,
             data_folder=output_folder,
         )
@@ -193,8 +178,8 @@ class SentinelDataLoader:
         for idx, row in tqdm(gdf.iterrows(), total=len(gdf), desc="Downloading tiles"):
             try:
                 # Use total_bounds of the geometry
-                bounds = row.geometry.bounds
-                aoi_bbox = BBox(bbox=bounds, crs=CRS.WGS84)
+                bounds = row.geometry.bounds  # now in EPSG:3035 meters
+                aoi_bbox = BBox(bbox=bounds, crs=EU_CRS)
 
                 # Determine tile ID (for logging/manifest only, not directory structure)
                 if id_column and id_column in gdf.columns:
@@ -204,7 +189,7 @@ class SentinelDataLoader:
 
                 # Parameters for cache key
                 evalscript = self.get_evalscript()
-                collection_name = "SENTINEL2_L2A_CDSE"
+                collection_name = self.CDSE_S2_L2A.name
 
                 # Compute cache key
                 cache_key = self.compute_cache_key(
@@ -279,7 +264,7 @@ class SentinelDataLoader:
                     "time": {"start": time_interval[0], "end": time_interval[1]},
                     "collection": collection_name,
                     "resolution_m": resolution,
-                    "crs": "EPSG:4326",
+                    "crs": "EPSG:3035",
                     "outputs": {
                         "spectral": ["B02", "B03", "B04", "B08"],
                         "scl": ["SCL"],

@@ -5,8 +5,8 @@ stages:
     deps:
     - path: conf/load_data/params.yaml
       hash: md5
-      md5: fb6817a54c4c037a42af30466000e9b1
-      size: 452
+      md5: cd51c4f19ad3505873c252a067f3a8fd
+      size: 576
     - path: data/natural-earth/ne_10m_admin_0_countries.geojson
       hash: md5
       md5: 33d2b3758f0b60dc3600961df4fff2ff
@@ -19,59 +19,98 @@ stages:
       conf/load_data/params.yaml:
         aoi:
           name:
-          - Liechtenstein
+          - France
+          - Germany
+          - Belgium
+          - Netherlands
+          - Italy
+          - Spain
+          - Greece
           subregion:
           iso_a3:
           source: data/natural-earth/ne_10m_admin_0_countries.geojson
     outs:
     - path: data/aoi.geojson
       hash: md5
-      md5: 4886a839b66f9eb486a507504718f53f
-      size: 1082
+      md5: 41a16a9b4cb325721ecda11ee61f98a7
+      size: 346829
   generate_grid:
     cmd: python -m scripts.load_data.pipeline.02_grid
     deps:
     - path: conf/load_data/params.yaml
       hash: md5
-      md5: fb6817a54c4c037a42af30466000e9b1
-      size: 452
+      md5: cd51c4f19ad3505873c252a067f3a8fd
+      size: 576
     - path: data/aoi.geojson
       hash: md5
-      md5: 4886a839b66f9eb486a507504718f53f
-      size: 1082
+      md5: 41a16a9b4cb325721ecda11ee61f98a7
+      size: 346829
     - path: scripts/load_data/pipeline/02_grid.py
       hash: md5
-      md5: fe8385893e0109e691aca7368f116295
+      md5: 9b8144998333546bc21670c344df4526
+      size: 1599
+    - path: scripts/load_data/processors.py
+      hash: md5
+      md5: 9c037064c06959c248aed57ae9cf9fc0
       size: 1591
     params:
       conf/load_data/params.yaml:
         preprocessing:
-          grid_size_km: 10
+          grid_size_km: 25
           resolution_m: 10
     outs:
-    - path: data/grid.geojson
+    - path: data/grid.gpkg
       hash: md5
-      md5: b612a3a9f6459a1893cc7bde1e20e975
-      size: 1016
-  download_imagery:
-    cmd: python -m scripts.load_data.pipeline.03_download
+      md5: 7cb346205ac8315a783b481bae8b7417
+      size: 806912
+  select_tiles:
+    cmd: python -m scripts.load_data.pipeline.03_select_tiles
     deps:
     - path: conf/load_data/params.yaml
       hash: md5
-      md5: fb6817a54c4c037a42af30466000e9b1
-      size: 452
-    - path: data/grid.geojson
+      md5: cd51c4f19ad3505873c252a067f3a8fd
+      size: 576
+    - path: data/grid.gpkg
       hash: md5
-      md5: b612a3a9f6459a1893cc7bde1e20e975
-      size: 1016
+      md5: 7cb346205ac8315a783b481bae8b7417
+      size: 806912
+    - path: scripts/load_data/pipeline/03_select_tiles.py
+      hash: md5
+      md5: 59841370d8609047b7e70d3a645c5a74
+      size: 11886
+    params:
+      conf/load_data/params.yaml:
+        sampling:
+          enabled: true
+          total_tiles: 2500
+          per_country_min: 50
+          weight_power: 1.0
+          seed: 42
+          country_key: iso_a3
+    outs:
+    - path: data/grid_selected.gpkg
+      hash: md5
+      md5: 4e61890aaef3e3ecc681fc91ad94ce62
+      size: 700416
+  download_imagery:
+    cmd: python -m scripts.load_data.pipeline.04_download
+    deps:
+    - path: conf/load_data/params.yaml
+      hash: md5
+      md5: cd51c4f19ad3505873c252a067f3a8fd
+      size: 576
+    - path: data/grid_selected.gpkg
+      hash: md5
+      md5: 4e61890aaef3e3ecc681fc91ad94ce62
+      size: 700416
     - path: scripts/load_data/loader.py
       hash: md5
-      md5: 5f3938ebf19bdce71b09649ca335a2c6
-      size: 10412
-    - path: scripts/load_data/pipeline/03_download.py
+      md5: 9293523f95ef91b4be150fe3aa26e6d5
+      size: 9897
+    - path: scripts/load_data/pipeline/04_download.py
       hash: md5
-      md5: 84b19ef293887a18b2bd3dd84a37885c
-      size: 1391
+      md5: ef14fc8ac37988ec59f20839ba2f494e
+      size: 1397
     params:
       conf/load_data/params.yaml:
         download:
@@ -79,31 +118,31 @@ stages:
           end_date: '2021-09-30'
           output_dir: data/imagery
         preprocessing:
-          grid_size_km: 10
+          grid_size_km: 25
           resolution_m: 10
     outs:
     - path: data/imagery
       hash: md5
-      md5: 5f04bcdb8dbb68a2eb3f1cdc43f766f8.dir
-      size: 70603
-      nfiles: 10
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
   generate_labels:
-    cmd: python -m scripts.load_data.pipeline.04_label
+    cmd: python -m scripts.load_data.pipeline.05_label
     deps:
     - path: conf/load_data/params.yaml
       hash: md5
-      md5: fb6817a54c4c037a42af30466000e9b1
-      size: 452
+      md5: cd51c4f19ad3505873c252a067f3a8fd
+      size: 576
     - path: data/imagery
       hash: md5
-      md5: 5f04bcdb8dbb68a2eb3f1cdc43f766f8.dir
-      size: 70603
-      nfiles: 10
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
     - path: data/worldcover/v200/2021/esa_worldcover_grid.geojson
       hash: md5
       md5: ff83a264e6364861d4e71681b868f886
       size: 543674
-    - path: scripts/load_data/pipeline/04_label.py
+    - path: scripts/load_data/pipeline/05_label.py
       hash: md5
       md5: de45227130a13102eaba87a6f4452a93
       size: 2965
@@ -120,6 +159,6 @@ stages:
     outs:
     - path: data/labels
       hash: md5
-      md5: cba4e0fed39607b550ad1c5f2e429e16.dir
-      size: 174475
-      nfiles: 2
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0

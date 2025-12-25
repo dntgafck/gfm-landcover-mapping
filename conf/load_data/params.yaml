@@ -1,13 +1,21 @@
 aoi:
-  # name: ["France", "Germany", "Belgium", "Netherlands", "Italy", "Spain", "Greece"]
-  name: ["Liechtenstein"]
+  name: ["France", "Germany", "Belgium", "Netherlands", "Italy", "Spain", "Greece"]
+  # name: ["Liechtenstein"]
   subregion: null
   iso_a3: null
   source: "data/natural-earth/ne_10m_admin_0_countries.geojson"
 
 preprocessing:
-  grid_size_km: 10
+  grid_size_km: 25
   resolution_m: 10
+
+sampling:
+  enabled: true
+  total_tiles: 2500
+  per_country_min: 50
+  weight_power: 1.0
+  seed: 42
+  country_key: "iso_a3"
 
 download:
   start_date: "2021-05-01"
