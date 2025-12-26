@@ -102,55 +102,55 @@ class TileSampler:
         current_total = stats_df["allocated"].sum()
         diff = total_budget - current_total
 
-        if diff != 0:
-            stats_df = stats_df.sort_values("key")
+        if diff == 0:
+            return dict(zip(stats_df["key"], stats_df["allocated"], strict=False))
 
-            if diff > 0:
-                # Need to ADD samples
-                while diff > 0:
-                    mask = stats_df["allocated"] < stats_df["n_c"]
-                    if not mask.any():
-                        break
+        stats_df = stats_df.sort_values("key")
 
-                    stats_df["ideal"] = total_budget * stats_df["weight"] / total_weight
-                    stats_df["residual"] = stats_df["ideal"] - stats_df["allocated"]
+        if diff > 0:
+            # Need to ADD samples
+            while diff > 0:
+                mask = stats_df["allocated"] < stats_df["n_c"]
+                if not mask.any():
+                    break
 
-                    best_idx = (
-                        stats_df.loc[mask]
-                        .sort_values(by=["residual", "key"], ascending=[False, True])
-                        .index[0]
-                    )
+                stats_df["ideal"] = total_budget * stats_df["weight"] / total_weight
+                stats_df["residual"] = stats_df["ideal"] - stats_df["allocated"]
 
-                    stats_df.at[best_idx, "allocated"] += 1
-                    diff -= 1
+                best_idx = (
+                    stats_df.loc[mask]
+                    .sort_values(by=["residual", "key"], ascending=[False, True])
+                    .index[0]
+                )
 
-            elif diff < 0:
-                # Need to REMOVE samples
-                while diff < 0:
+                stats_df.at[best_idx, "allocated"] += 1
+                diff -= 1
+            return dict(zip(stats_df["key"], stats_df["allocated"], strict=False))
 
-                    def get_floor(row):
-                        return min(row["n_c"], min_per_country)
+        # Need to REMOVE samples
+        while diff < 0:
 
-                    stats_df["floor"] = stats_df.apply(get_floor, axis=1)
-                    candidates = stats_df[stats_df["allocated"] > stats_df["floor"]]
+            def get_floor(row):
+                return min(row["n_c"], min_per_country)
 
-                    if candidates.empty:
-                        logger.warning(
-                            "Could not reduce count to total_tiles due to minimum constraints."
-                        )
-                        break
+            stats_df["floor"] = stats_df.apply(get_floor, axis=1)
+            candidates = stats_df[stats_df["allocated"] > stats_df["floor"]]
 
-                    stats_df["ideal"] = total_budget * stats_df["weight"] / total_weight
-                    stats_df["residual"] = stats_df["ideal"] - stats_df["allocated"]
+            if candidates.empty:
+                logger.warning("Could not reduce count to total_tiles due to minimum constraints.")
+                break
 
-                    best_idx = (
-                        stats_df.loc[candidates.index]
-                        .sort_values(by=["residual", "key"], ascending=[True, True])
-                        .index[0]
-                    )
+            stats_df["ideal"] = total_budget * stats_df["weight"] / total_weight
+            stats_df["residual"] = stats_df["ideal"] - stats_df["allocated"]
 
-                    stats_df.at[best_idx, "allocated"] -= 1
-                    diff += 1
+            best_idx = (
+                stats_df.loc[candidates.index]
+                .sort_values(by=["residual", "key"], ascending=[True, True])
+                .index[0]
+            )
+
+            stats_df.at[best_idx, "allocated"] -= 1
+            diff += 1
 
         return dict(zip(stats_df["key"], stats_df["allocated"], strict=False))
 

@@ -51,8 +51,8 @@ stages:
       size: 1599
     - path: scripts/load_data/processors.py
       hash: md5
-      md5: 9c037064c06959c248aed57ae9cf9fc0
-      size: 1591
+      md5: 2f2df2f5152bf09a72d5b9c88c679682
+      size: 7331
     params:
       conf/load_data/params.yaml:
         preprocessing:
@@ -61,7 +61,7 @@ stages:
     outs:
     - path: data/grid.gpkg
       hash: md5
-      md5: 7cb346205ac8315a783b481bae8b7417
+      md5: d398cfc8e3805b302656df7bfb1c6945
       size: 806912
   select_tiles:
     cmd: python -m scripts.load_data.pipeline.03_select_tiles
@@ -72,12 +72,16 @@ stages:
       size: 576
     - path: data/grid.gpkg
       hash: md5
-      md5: 7cb346205ac8315a783b481bae8b7417
+      md5: d398cfc8e3805b302656df7bfb1c6945
       size: 806912
     - path: scripts/load_data/pipeline/03_select_tiles.py
       hash: md5
-      md5: 59841370d8609047b7e70d3a645c5a74
-      size: 11886
+      md5: ab5e06a7819576ed53fe4fcc45bb1216
+      size: 720
+    - path: scripts/load_data/processors.py
+      hash: md5
+      md5: 2f2df2f5152bf09a72d5b9c88c679682
+      size: 7331
     params:
       conf/load_data/params.yaml:
         sampling:
@@ -90,7 +94,7 @@ stages:
     outs:
     - path: data/grid_selected.gpkg
       hash: md5
-      md5: 4e61890aaef3e3ecc681fc91ad94ce62
+      md5: f02649fbc31266250eb02f2820fb54b9
       size: 700416
   download_imagery:
     cmd: python -m scripts.load_data.pipeline.04_download
@@ -101,12 +105,12 @@ stages:
       size: 576
     - path: data/grid_selected.gpkg
       hash: md5
-      md5: 4e61890aaef3e3ecc681fc91ad94ce62
+      md5: f02649fbc31266250eb02f2820fb54b9
       size: 700416
     - path: scripts/load_data/loader.py
       hash: md5
-      md5: 9293523f95ef91b4be150fe3aa26e6d5
-      size: 9897
+      md5: bcaf77aa0049135e8cf5cafc9a00739e
+      size: 9912
     - path: scripts/load_data/pipeline/04_download.py
       hash: md5
       md5: ef14fc8ac37988ec59f20839ba2f494e
@@ -123,9 +127,9 @@ stages:
     outs:
     - path: data/imagery
       hash: md5
-      md5: d751713988987e9331980363e24189ce.dir
-      size: 0
-      nfiles: 0
+      md5: 965cac88bca9baabd6860063b513a1be.dir
+      size: 129826817138
+      nfiles: 12508
   generate_labels:
     cmd: python -m scripts.load_data.pipeline.05_label
     deps:
@@ -135,17 +139,17 @@ stages:
       size: 576
     - path: data/imagery
       hash: md5
-      md5: d751713988987e9331980363e24189ce.dir
-      size: 0
-      nfiles: 0
+      md5: 965cac88bca9baabd6860063b513a1be.dir
+      size: 129826817138
+      nfiles: 12508
     - path: data/worldcover/v200/2021/esa_worldcover_grid.geojson
       hash: md5
       md5: ff83a264e6364861d4e71681b868f886
       size: 543674
     - path: scripts/load_data/pipeline/05_label.py
       hash: md5
-      md5: de45227130a13102eaba87a6f4452a93
-      size: 2965
+      md5: a53ee523ef221d5653d4efc9e0f9e314
+      size: 2404
     params:
       conf/load_data/params.yaml:
         download:
@@ -159,6 +163,6 @@ stages:
     outs:
     - path: data/labels
       hash: md5
-      md5: d751713988987e9331980363e24189ce.dir
-      size: 0
-      nfiles: 0
+      md5: 14664f1c6db8f5f5fc2463f3bf622471.dir
+      size: 1267633540
+      nfiles: 2505

@@ -1,0 +1,5 @@
+outs:
+- md5: ff83a264e6364861d4e71681b868f886
+  size: 543674
+  hash: md5
+  path: esa_worldcover_grid.geojson

@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import yaml
+from tqdm import tqdm
 
 from scripts.load_data.worldcover_labels import WorldCoverLabeler, WorldCoverS3Config
 
@@ -17,12 +18,6 @@ def main():
     download_params = params["download"]
 
     # Check for WorldCover grid file
-    # If not configured, use default path relative to project root?
-    # The class default is "data/worldcover/v200/2021/esa_worldcover_grid.geojson"
-    # We should ensure this file exists or is downloaded.
-    # For now, let's assume the user has it or we point to it.
-    # We can pass it if we have it in params.
-
     wc_grid_path = (
         "data/worldcover/v200/2021/esa_worldcover_grid.geojson"  # Hardcoded backup or need param
     )
@@ -33,7 +28,6 @@ def main():
     # Initialize labeler with lazy grid loading if possible, but __init__ reads it.
     if not os.path.exists(wc_grid_path):
         print(f"WARNING: WorldCover grid not found at {wc_grid_path}. Labeling might fail.")
-        # Try to find it if possible or rely on error
 
     try:
         labeler = WorldCoverLabeler(wc_grid_path, s3_cfg)
@@ -50,37 +44,32 @@ def main():
         print(f"Input directory {input_root} does not exist.")
         return
 
-    count = 0
-    # Walk: data/imagery/<ISO_A3>/<cache_key>/spectral.tif
+    # Collect tasks
+    tasks = []
     for root, _dirs, files in os.walk(input_root):
         for file in files:
             if file == "spectral.tif":
                 ref_path = Path(root) / file
-
-                # Construct output path: mirror directory structure in labels output dir
-                # data/imagery/<ISO_A3>/<cache_key>/spectral.tif
-                # -> data/labels/<ISO_A3>/<cache_key>/labels.tif
-
                 rel_path = ref_path.relative_to(input_root)
-                out_dir = output_root / rel_path.parent
-                out_dir.mkdir(parents=True, exist_ok=True)
+                out_path = output_root / rel_path.parent / "labels.tif"
 
-                out_path = out_dir / "labels.tif"
+                if not out_path.exists():
+                    tasks.append((ref_path, out_path))
 
-                if out_path.exists():
-                    continue
+    if not tasks:
+        print("No new labels to generate.")
+        return
 
-                print(f"Generating labels for {ref_path}...")
-                try:
-                    # This will perform hard assertions inside
-                    labeler.write_labels_for_image(str(ref_path), out_path=str(out_path))
-                    count += 1
-                except Exception as e:
-                    print(f"CRITICAL: Failed to generate aligned label for {ref_path}: {e}")
-                    # Fail fast as per requirements
-                    raise
-
-    print(f"Generated {count} label files.")
+    print(f"Generating {len(tasks)} labels...")
+    count = 0
+    for ref_path, out_path in tqdm(tasks, desc="Labeling"):
+        try:
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            labeler.write_labels_for_image(str(ref_path), out_path=str(out_path))
+            count += 1
+        except Exception as e:
+            print(f"\nCRITICAL: Failed to generate aligned label for {ref_path}: {e}")
+            raise
 
     print(f"Generated {count} label files.")
 

@@ -1,0 +1,5 @@
+outs:
+- md5: 33d2b3758f0b60dc3600961df4fff2ff
+  size: 13287234
+  hash: md5
+  path: ne_10m_admin_0_countries.geojson

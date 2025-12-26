@@ -234,35 +234,3 @@ class WorldCoverLabeler:
             assert labels.height == ref_h, f"Height mismatch: {labels.height} != {ref_h}"
 
         return out_path_obj
-
-    def write_labels_for_response_tiff(self, *args, **kwargs):
-        """Deprecated: use write_labels_for_image"""
-        return self.write_labels_for_image(*args, **kwargs)
-
-
-def generate_labels_for_aoi_folder(
-    aoi_root: str,
-    worldcover_grid_geojson: str = "data/worldcover/v200/2021/esa_worldcover_grid.geojson",
-    cache_dir: str = "data/worldcover/cache",
-    overwrite: bool = False,
-) -> int:
-    """
-    Convenience utility: walk `data/<AOI>/sh/**/response.tiff` and
-    create `labels.tiff` next to each.
-
-    Returns number of labels written.
-    """
-    cfg = WorldCoverS3Config(cache_dir=cache_dir)
-    labeler = WorldCoverLabeler(worldcover_grid_geojson, cfg)
-
-    aoi_root_path = Path(aoi_root)
-    written = 0
-
-    for resp in aoi_root_path.rglob("response.tiff"):
-        out = resp.parent / "labels.tiff"
-        if out.exists() and not overwrite:
-            continue
-        labeler.write_labels_for_response_tiff(str(resp), out_path=str(out))
-        written += 1
-
-    return written
