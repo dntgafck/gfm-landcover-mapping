@@ -5,8 +5,8 @@ stages:
     deps:
     - path: conf/params.yaml
       hash: md5
-      md5: d46df46309ae280da6a67075cefa6b1c
-      size: 1610
+      md5: d48a8e413366720e03440e9e87174e68
+      size: 1638
     - path: data/natural-earth/ne_10m_admin_0_countries.geojson
       hash: md5
       md5: 33d2b3758f0b60dc3600961df4fff2ff
@@ -39,8 +39,8 @@ stages:
     deps:
     - path: conf/params.yaml
       hash: md5
-      md5: d46df46309ae280da6a67075cefa6b1c
-      size: 1610
+      md5: d48a8e413366720e03440e9e87174e68
+      size: 1638
     - path: data/aoi.geojson
       hash: md5
       md5: 41a16a9b4cb325721ecda11ee61f98a7
@@ -61,18 +61,18 @@ stages:
     outs:
     - path: data/grid.gpkg
       hash: md5
-      md5: 923a6815e5bf303841bcada89dbcbd9a
+      md5: e631ad5bcf3c4f316e2b85332d4ea604
       size: 806912
   select_tiles:
     cmd: python -m data_preparation.pipeline.03_select_tiles
     deps:
     - path: conf/params.yaml
       hash: md5
-      md5: d46df46309ae280da6a67075cefa6b1c
-      size: 1610
+      md5: d48a8e413366720e03440e9e87174e68
+      size: 1638
     - path: data/grid.gpkg
       hash: md5
-      md5: 923a6815e5bf303841bcada89dbcbd9a
+      md5: e631ad5bcf3c4f316e2b85332d4ea604
       size: 806912
     - path: data_preparation/load_data/processors.py
       hash: md5
@@ -94,23 +94,23 @@ stages:
     outs:
     - path: data/grid_selected.gpkg
       hash: md5
-      md5: 0c8adc560057ae78c6eea901cb51a809
+      md5: 035732c44422b92e9fb311b4c4ff60f6
       size: 700416
   download_imagery:
     cmd: python -m data_preparation.pipeline.04_download
     deps:
     - path: conf/params.yaml
       hash: md5
-      md5: d46df46309ae280da6a67075cefa6b1c
-      size: 1610
+      md5: d48a8e413366720e03440e9e87174e68
+      size: 1638
     - path: data/grid_selected.gpkg
       hash: md5
-      md5: 0c8adc560057ae78c6eea901cb51a809
+      md5: 035732c44422b92e9fb311b4c4ff60f6
       size: 700416
     - path: data_preparation/load_data/loader.py
       hash: md5
-      md5: 961f7691961980e18b6dfd634a3bdd2a
-      size: 9928
+      md5: ff229ac635c352d7d48212e9aa6e2bfd
+      size: 10010
     - path: data_preparation/pipeline/04_download.py
       hash: md5
       md5: 609627ce1310a3f46357190b59dc414c
@@ -135,8 +135,8 @@ stages:
     deps:
     - path: conf/params.yaml
       hash: md5
-      md5: d46df46309ae280da6a67075cefa6b1c
-      size: 1610
+      md5: d48a8e413366720e03440e9e87174e68
+      size: 1638
     - path: data/imagery
       hash: md5
       md5: b6f442aa92090f42df1be912148f483d.dir
@@ -224,12 +224,16 @@ stages:
       nfiles: 405002
   patchify:
     cmd: python -m data_preparation.pipeline.06_patchify --config
-      conf/patchify/params.yaml
+      conf/params.yaml
     deps:
-    - path: conf/patchify/params.yaml
+    - path: conf/params.yaml
       hash: md5
-      md5: bc4fefa6471b06f422c16136bf56dd08
-      size: 588
+      md5: 4bad501286b19edce514a1289febf53f
+      size: 1599
+    - path: data/aoi.geojson
+      hash: md5
+      md5: 41a16a9b4cb325721ecda11ee61f98a7
+      size: 346829
     - path: data/imagery
       hash: md5
       md5: b6f442aa92090f42df1be912148f483d.dir
@@ -250,31 +254,117 @@ stages:
       size: 1403
     - path: data_preparation/pipeline/06_patchify.py
       hash: md5
-      md5: ae4fdbdd69ae40701879f45d65d7b545
-      size: 11489
+      md5: 369301888b809a82fabcb62b11c72c32
+      size: 13208
     - path: utils/logging.py
       hash: md5
       md5: 1dac22996abdf585b3308278ad1fc5a3
       size: 966
     params:
-      conf/patchify/params.yaml:
-        cloud_scl_codes:
-        - 3
-        - 8
-        - 9
-        - 10
-        - 11
-        compression: LZW
-        ignore_label_values:
-        - 0
-        max_cloud_frac: 0.1
-        min_valid_frac: 0.9
-        patch_size: 256
-        skip_unusable: false
-        stride: 256
+      conf/params.yaml:
+        patchify:
+          imagery_root: data/imagery
+          labels_root: data/labels
+          output_root: data/patches
+          aoi_path: data/aoi.geojson
+          dataset_index_path: data/index/dataset_index.csv
+          spectral_name: spectral.tif
+          scl_name: scl.tif
+          mask_name: mask.tif
+          labels_name: labels.tif
+          manifest_name: manifest.json
+          patch_size: 256
+          stride: 256
+          cloud_scl_codes:
+          - 3
+          - 8
+          - 9
+          - 10
+          - 11
+          min_valid_frac: 0.9
+          max_cloud_frac: 0.1
+          ignore_label_values:
+          - 0
+          compression: LZW
+          skip_unusable: false
+          num_workers: 1
     outs:
+    - path: data/index/dataset_index.csv
+      hash: md5
+      md5: 8f7e2ae4bfaaccbdb2f4e3d9b1c6b17d
+      size: 131772316
     - path: data/patches
       hash: md5
-      md5: 586c2ca027fdd47d08a77e862f73de25.dir
-      size: 168757994328
-      nfiles: 405002
+      md5: 71a8e2eb99eb0b9ecf0517f32ce09a91.dir
+      size: 168641348171
+      nfiles: 405001
+  assign_splits:
+    cmd: python -m data_preparation.pipeline.07_assign_splits --config
+      conf/params.yaml
+    deps:
+    - path: conf/params.yaml
+      hash: md5
+      md5: 4bad501286b19edce514a1289febf53f
+      size: 1599
+    - path: data/aoi.geojson
+      hash: md5
+      md5: 41a16a9b4cb325721ecda11ee61f98a7
+      size: 346829
+    - path: data/index/dataset_index.csv
+      hash: md5
+      md5: 8f7e2ae4bfaaccbdb2f4e3d9b1c6b17d
+      size: 131772316
+    - path: data_preparation/index/hash_split.py
+      hash: md5
+      md5: 6d5b13007701892abf8fdb9e77fd10f2
+      size: 1234
+    - path: data_preparation/pipeline/07_assign_splits.py
+      hash: md5
+      md5: 50950d5b8e54455eb389a4cacafadcfa
+      size: 5373
+    params:
+      conf/params.yaml:
+        split:
+          input_csv: data/index/dataset_index.csv
+          output_csv: data/index/dataset_index_with_split.csv
+          output_dir: data/index
+          seed: 42
+          config:
+          - name: iid
+            countries:
+            - France
+            - Germany
+            - Belgium
+            - Netherlands
+            splits:
+              train: 0.7
+              val: 0.15
+              test: 0.15
+          - name: ood
+            countries:
+            - Italy
+            - Spain
+            - Greece
+            splits:
+              ood: 1.0
+    outs:
+    - path: data/index/dataset_index_with_split.csv
+      hash: md5
+      md5: 845ebde1394bdfa2c90ae4409223944b
+      size: 145903771
+    - path: data/index/ood_index.csv
+      hash: md5
+      md5: 6f7537db5f5f7326842583a861a66031
+      size: 68003467
+    - path: data/index/test_index.csv
+      hash: md5
+      md5: e612a9b0cd6c84e17323bc7f490773ad
+      size: 11608709
+    - path: data/index/train_index.csv
+      hash: md5
+      md5: 7907974d80ec65808db920717f3e95b6
+      size: 54567200
+    - path: data/index/val_index.csv
+      hash: md5
+      md5: 31529d6a1bdabcbc2a7344d61d168bba
+      size: 11725091

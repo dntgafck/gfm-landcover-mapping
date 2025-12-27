@@ -56,7 +56,6 @@ split:
   input_csv: data/index/dataset_index.csv
   output_csv: data/index/dataset_index_with_split.csv
   output_dir: data/index
-  strategy: tile # "tile" or "country"
   seed: 42
   config:
     - name: iid

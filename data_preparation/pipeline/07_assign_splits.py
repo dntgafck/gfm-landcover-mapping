@@ -50,7 +50,6 @@ def main(config: str):
     output_csv = Path(cfg.get("output_csv", "data/index/dataset_index_with_split.csv"))
     output_dir = Path(cfg.get("output_dir", "data/index"))
     aoi_path = Path("data/aoi.geojson")
-    strategy = cfg.get("strategy", "tile")
     seed = cfg.get("seed", 42)
     split_configs = cfg.get("config", [])
 
@@ -92,15 +91,9 @@ def main(config: str):
 
         all_split_names.update(splits.keys())
 
-    # 3. Determine Group IDs based on strategy
-    if strategy == "tile":
-        df["group_id"] = df["tile_id"]
-    elif strategy == "country":
-        df["group_id"] = df["country"]
-    else:
-        raise ValueError(f"Unknown split strategy: {strategy}")
+    df["group_id"] = df["tile_id"]
 
-    # 4. Stratified Assignment Logic: Per Country
+    # 3. Stratified Assignment Logic: Per Country
     df["split"] = "excluded"
     unique_countries = df["country"].unique()
 
@@ -131,14 +124,14 @@ def main(config: str):
         # Map back to main dataframe
         df.loc[df["country"] == country, "split"] = country_df["group_id"].map(group_to_split)
 
-    # 5. Remove excluded
+    # 4. Remove excluded
     if (df["split"] == "excluded").any():
         logger.info(
             f"Removing {(df['split'] == 'excluded').sum()} patches from countries not in config."
         )
         df = df[df["split"] != "excluded"].copy()
 
-    # 6. Log distribution per country
+    # 5. Log distribution per country
     logger.info("Split Distribution per Country:")
     for country in sorted(df["country"].unique()):
         sub = df[df["country"] == country]
@@ -146,12 +139,12 @@ def main(config: str):
         count_str = ", ".join([f"{k}: {v}" for k, v in counts.items()])
         logger.info(f"  {country:4}: {count_str}")
 
-    # 7. Save outputs
+    # 6. Save outputs
     output_dir.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_csv, index=False)
     logger.info(f"Wrote canonical index with splits to {output_csv}")
 
-    # Dynamically generate subset files
+    # 7. Dynamically generate subset files
     final_splits = sorted(df["split"].unique())
     for s in final_splits:
         sub = df[df["split"] == s]
