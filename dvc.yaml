@@ -71,7 +71,7 @@ stages:
       - data/labels:
           persist: true
 
-  06_patchify:
+  patchify:
     cmd: python -m data_preparation.pipeline.06_patchify --config conf/patchify/params.yaml
     deps:
       - data_preparation/pipeline/06_patchify.py
