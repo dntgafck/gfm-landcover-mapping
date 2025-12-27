@@ -2,10 +2,10 @@ import unittest.mock as mock
 
 from sentinelhub import CRS, BBox
 
-from scripts.load_data.loader import SentinelDataLoader
+from data_preparation.load_data.loader import SentinelDataLoader
 
 
-@mock.patch("scripts.load_data.loader.get_config")
+@mock.patch("data_preparation.load_data.loader.get_config")
 def test_compute_cache_key_determinism(mock_get_config):
     mock_get_config.return_value = mock.Mock()
     loader = SentinelDataLoader()
@@ -30,7 +30,7 @@ def test_compute_cache_key_determinism(mock_get_config):
     assert len(key1) == 64  # SHA256 length
 
 
-@mock.patch("scripts.load_data.loader.get_config")
+@mock.patch("data_preparation.load_data.loader.get_config")
 def test_compute_cache_key_sensitivity(mock_get_config):
     mock_get_config.return_value = mock.Mock()
     loader = SentinelDataLoader()
@@ -61,7 +61,7 @@ def test_compute_cache_key_sensitivity(mock_get_config):
     assert key_base != key_script
 
 
-@mock.patch("scripts.load_data.loader.get_config")
+@mock.patch("data_preparation.load_data.loader.get_config")
 def test_compute_cache_key_quantization(mock_get_config):
     mock_get_config.return_value = mock.Mock()
     loader = SentinelDataLoader()

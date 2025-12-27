@@ -1,7 +1,7 @@
 schema: '2.0'
 stages:
   load_aoi:
-    cmd: python -m scripts.load_data.pipeline.01_aoi
+    cmd: python -m data_preparation.pipeline.01_aoi
     deps:
     - path: conf/load_data/params.yaml
       hash: md5
@@ -11,10 +11,10 @@ stages:
       hash: md5
       md5: 33d2b3758f0b60dc3600961df4fff2ff
       size: 13287234
-    - path: scripts/load_data/pipeline/01_aoi.py
+    - path: data_preparation/pipeline/01_aoi.py
       hash: md5
-      md5: 1860077c7ed6ae51deb5637e019583ac
-      size: 3946
+      md5: fbdecbd941efd4026ee5f46ee9f98d60
+      size: 4102
     params:
       conf/load_data/params.yaml:
         aoi:
@@ -35,7 +35,7 @@ stages:
       md5: 41a16a9b4cb325721ecda11ee61f98a7
       size: 346829
   generate_grid:
-    cmd: python -m scripts.load_data.pipeline.02_grid
+    cmd: python -m data_preparation.pipeline.02_grid
     deps:
     - path: conf/load_data/params.yaml
       hash: md5
@@ -45,14 +45,14 @@ stages:
       hash: md5
       md5: 41a16a9b4cb325721ecda11ee61f98a7
       size: 346829
-    - path: scripts/load_data/pipeline/02_grid.py
+    - path: data_preparation/load_data/processors.py
       hash: md5
-      md5: 9b8144998333546bc21670c344df4526
-      size: 1599
-    - path: scripts/load_data/processors.py
+      md5: bcf58b126772bf142a23bab2605c0470
+      size: 7307
+    - path: data_preparation/pipeline/02_grid.py
       hash: md5
-      md5: 2f2df2f5152bf09a72d5b9c88c679682
-      size: 7331
+      md5: c24099664a909c592e28f2f282cb9fa0
+      size: 1608
     params:
       conf/load_data/params.yaml:
         preprocessing:
@@ -61,10 +61,10 @@ stages:
     outs:
     - path: data/grid.gpkg
       hash: md5
-      md5: d398cfc8e3805b302656df7bfb1c6945
+      md5: e212275acd09f2948b94d2bd51f3ff96
       size: 806912
   select_tiles:
-    cmd: python -m scripts.load_data.pipeline.03_select_tiles
+    cmd: python -m data_preparation.pipeline.03_select_tiles
     deps:
     - path: conf/load_data/params.yaml
       hash: md5
@@ -72,16 +72,16 @@ stages:
       size: 576
     - path: data/grid.gpkg
       hash: md5
-      md5: d398cfc8e3805b302656df7bfb1c6945
+      md5: e212275acd09f2948b94d2bd51f3ff96
       size: 806912
-    - path: scripts/load_data/pipeline/03_select_tiles.py
+    - path: data_preparation/load_data/processors.py
       hash: md5
-      md5: ab5e06a7819576ed53fe4fcc45bb1216
-      size: 720
-    - path: scripts/load_data/processors.py
+      md5: bcf58b126772bf142a23bab2605c0470
+      size: 7307
+    - path: data_preparation/pipeline/03_select_tiles.py
       hash: md5
-      md5: 2f2df2f5152bf09a72d5b9c88c679682
-      size: 7331
+      md5: 1323539300b6f40b1295e2cf7f01f78e
+      size: 729
     params:
       conf/load_data/params.yaml:
         sampling:
@@ -94,10 +94,10 @@ stages:
     outs:
     - path: data/grid_selected.gpkg
       hash: md5
-      md5: f02649fbc31266250eb02f2820fb54b9
+      md5: 9281a01006286c99e8392b2830d3c84c
       size: 700416
   download_imagery:
-    cmd: python -m scripts.load_data.pipeline.04_download
+    cmd: python -m data_preparation.pipeline.04_download
     deps:
     - path: conf/load_data/params.yaml
       hash: md5
@@ -105,16 +105,16 @@ stages:
       size: 576
     - path: data/grid_selected.gpkg
       hash: md5
-      md5: f02649fbc31266250eb02f2820fb54b9
+      md5: 9281a01006286c99e8392b2830d3c84c
       size: 700416
-    - path: scripts/load_data/loader.py
+    - path: data_preparation/load_data/loader.py
       hash: md5
-      md5: bcaf77aa0049135e8cf5cafc9a00739e
-      size: 9912
-    - path: scripts/load_data/pipeline/04_download.py
+      md5: 54329ec1ba52186e7c9042e5e3cd11c8
+      size: 9927
+    - path: data_preparation/pipeline/04_download.py
       hash: md5
-      md5: ef14fc8ac37988ec59f20839ba2f494e
-      size: 1397
+      md5: b5ee6fd1c483a1c0ebd18420aca87e75
+      size: 1406
     params:
       conf/load_data/params.yaml:
         download:
@@ -127,11 +127,11 @@ stages:
     outs:
     - path: data/imagery
       hash: md5
-      md5: 965cac88bca9baabd6860063b513a1be.dir
-      size: 129826817138
-      nfiles: 12508
+      md5: b6f442aa92090f42df1be912148f483d.dir
+      size: 129825225810
+      nfiles: 12500
   generate_labels:
-    cmd: python -m scripts.load_data.pipeline.05_label
+    cmd: python -m data_preparation.pipeline.05_label
     deps:
     - path: conf/load_data/params.yaml
       hash: md5
@@ -139,17 +139,17 @@ stages:
       size: 576
     - path: data/imagery
       hash: md5
-      md5: 965cac88bca9baabd6860063b513a1be.dir
-      size: 129826817138
-      nfiles: 12508
+      md5: b6f442aa92090f42df1be912148f483d.dir
+      size: 129825225810
+      nfiles: 12500
     - path: data/worldcover/v200/2021/esa_worldcover_grid.geojson
       hash: md5
       md5: ff83a264e6364861d4e71681b868f886
       size: 543674
-    - path: scripts/load_data/pipeline/05_label.py
+    - path: data_preparation/pipeline/05_label.py
       hash: md5
-      md5: a53ee523ef221d5653d4efc9e0f9e314
-      size: 2404
+      md5: 9d9b71f1d34cc86ecfc92032e82dfcf9
+      size: 2397
     params:
       conf/load_data/params.yaml:
         download:
@@ -163,6 +163,62 @@ stages:
     outs:
     - path: data/labels
       hash: md5
-      md5: 14664f1c6db8f5f5fc2463f3bf622471.dir
-      size: 1267633540
-      nfiles: 2505
+      md5: f85d92f5d6ad5b2391b8e91ddee6c9f1.dir
+      size: 1266566512
+      nfiles: 2500
+  06_patchify:
+    cmd: python -m data_preparation.pipeline.06_patchify --config
+      conf/patchify/params.yaml
+    deps:
+    - path: conf/patchify/params.yaml
+      hash: md5
+      md5: bc4fefa6471b06f422c16136bf56dd08
+      size: 588
+    - path: data/imagery
+      hash: md5
+      md5: b6f442aa92090f42df1be912148f483d.dir
+      size: 129825225810
+      nfiles: 12500
+    - path: data/labels
+      hash: md5
+      md5: f85d92f5d6ad5b2391b8e91ddee6c9f1.dir
+      size: 1266566512
+      nfiles: 2500
+    - path: data_preparation/patchify/io.py
+      hash: md5
+      md5: 00965e21ae95f569fc0912fb66c366fc
+      size: 2551
+    - path: data_preparation/patchify/stats.py
+      hash: md5
+      md5: 2212325344bb01205e8d07db17dfd399
+      size: 1482
+    - path: data_preparation/pipeline/06_patchify.py
+      hash: md5
+      md5: d6a52380aac3de0183d2c1a2005d7808
+      size: 11650
+    - path: utils/logging.py
+      hash: md5
+      md5: 157f04a1b0a121166001c25b84b07dbb
+      size: 977
+    params:
+      conf/patchify/params.yaml:
+        cloud_scl_codes:
+        - 3
+        - 8
+        - 9
+        - 10
+        - 11
+        compression: LZW
+        ignore_label_values:
+        - 0
+        max_cloud_frac: 0.1
+        min_valid_frac: 0.9
+        patch_size: 256
+        skip_unusable: false
+        stride: 256
+    outs:
+    - path: data/patches
+      hash: md5
+      md5: 5fef6e03b11b5222725dcec0b59a8d10.dir
+      size: 168757994328
+      nfiles: 405002

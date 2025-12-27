@@ -3,7 +3,7 @@ from pathlib import Path
 import geopandas as gpd
 import yaml
 
-from scripts.load_data.processors import TileSampler
+from data_preparation.load_data.processors import TileSampler
 
 
 def load_params():

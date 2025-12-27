@@ -1,0 +1,28 @@
+# IO Paths
+imagery_root: data/imagery
+labels_root: data/labels
+output_root: data/patches
+
+# Filenames
+spectral_name: spectral.tif
+scl_name: scl.tif
+mask_name: mask.tif
+labels_name: labels.tif
+manifest_name: manifest.json
+
+# Patch Parameters
+patch_size: 256
+stride: 256
+
+# QA Thresholds
+cloud_scl_codes: [3, 8, 9, 10, 11] # SCL: shadow, med prob cloud, high prob cloud, cirrus, snow/ice
+min_valid_frac: 0.90
+max_cloud_frac: 0.10
+ignore_label_values: [0] # Assuming 0 is nodata/unclassified in ESA WorldCover
+
+# Output params
+compression: LZW
+skip_unusable: false
+
+# Runtime
+num_workers: 1

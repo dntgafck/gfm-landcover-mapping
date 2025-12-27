@@ -1,11 +1,11 @@
-import logging
-
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from shapely.geometry import box
 
-logger = logging.getLogger(__name__)
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class GridPreprocessor:

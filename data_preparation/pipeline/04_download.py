@@ -3,7 +3,7 @@ from pathlib import Path
 import geopandas as gpd
 import yaml
 
-from scripts.load_data.loader import SentinelDataLoader
+from data_preparation.load_data.loader import SentinelDataLoader
 
 
 def load_params():

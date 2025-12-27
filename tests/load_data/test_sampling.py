@@ -1,6 +1,6 @@
 import pandas as pd
 
-from scripts.load_data.processors import TileSampler
+from data_preparation.load_data.processors import TileSampler
 
 
 def allocate_budget(*args, **kwargs):

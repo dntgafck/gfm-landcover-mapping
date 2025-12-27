@@ -1,7 +1,7 @@
 import geopandas as gpd
 from shapely.geometry import Polygon
 
-from scripts.load_data.processors import GridPreprocessor
+from data_preparation.load_data.processors import GridPreprocessor
 
 
 def test_generate_grid_basic():

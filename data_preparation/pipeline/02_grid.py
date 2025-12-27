@@ -4,7 +4,7 @@ import geopandas as gpd
 import pandas as pd
 import yaml
 
-from scripts.load_data.processors import GridPreprocessor
+from data_preparation.load_data.processors import GridPreprocessor
 
 
 def load_params():

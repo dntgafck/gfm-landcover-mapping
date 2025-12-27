@@ -1,6 +1,5 @@
 import hashlib
 import json
-import logging
 import os
 import shutil
 from datetime import datetime
@@ -15,11 +14,13 @@ from sentinelhub import (
 )
 from tqdm import tqdm
 
+from utils.logging import get_logger
+
 from .auth import get_config
 
 EU_CRS = CRS(3035)  # EPSG:3035
 # Setup logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SentinelDataLoader:

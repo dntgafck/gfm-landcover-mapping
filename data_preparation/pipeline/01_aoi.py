@@ -4,7 +4,10 @@ import geopandas as gpd
 import pandas as pd
 import yaml
 
-from scripts.load_data.aoi import AOILoader
+from data_preparation.load_data.aoi import AOILoader
+from utils.logging import get_logger, setup_logging
+
+logger = get_logger(__name__)
 
 
 def load_params():
@@ -30,9 +33,9 @@ def main():
             # Assuming 'country' column holds the name we filter by, or use iso_a3 if reliable
             if "country" in existing_gdf.columns:
                 existing_countries.update(existing_gdf["country"].tolist())
-            print(f"Loaded existing AOI with {len(existing_gdf)} features.")
+            logger.info(f"Loaded existing AOI with {len(existing_gdf)} features.")
         except Exception as e:
-            print(f"Failed to load existing AOI: {e}. Starting fresh.")
+            logger.error(f"Failed to load existing AOI: {e}. Starting fresh.")
 
     # Filter params based on what we already have
     # We primarily filter by 'name' (country list) as that seems to be the main driver
@@ -43,11 +46,11 @@ def main():
         new_names = [n for n in requested_names if n not in existing_countries]
 
         if not new_names:
-            print("All requested countries are already present in aoi.geojson.")
+            logger.info("All requested countries are already present in aoi.geojson.")
             return
 
         # Update params to only fetch new names
-        print(f"Fetching new countries: {new_names}")
+        logger.info(f"Fetching new countries: {new_names}")
         # We need to construct a query that only targets these new names
         # Copy params and override 'name'
         query_params = {k: v for k, v in aoi_params.items() if k != "source"}
@@ -62,11 +65,11 @@ def main():
         raw_gdf = loader.load_aoi(**query_params)
     except Exception as e:
         # If filtering returns nothing (e.g. country name wrong), handle gracefully
-        print(f"Error loading AOIs: {e}")
+        logger.error(f"Error loading AOIs: {e}")
         return
 
     if raw_gdf.empty:
-        print("No new AOIs found with given parameters.")
+        logger.info("No new AOIs found with given parameters.")
         return
 
     # Process new data
@@ -99,8 +102,9 @@ def main():
     # Save
     out_path.parent.mkdir(parents=True, exist_ok=True)
     final_gdf.to_file(out_path, driver="GeoJSON")
-    print(f"Saved merged AOI to {out_path} with {len(final_gdf)} features.")
+    logger.info(f"Saved merged AOI to {out_path} with {len(final_gdf)} features.")
 
 
 if __name__ == "__main__":
+    setup_logging()
     main()

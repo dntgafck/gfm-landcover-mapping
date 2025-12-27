@@ -1,7 +1,7 @@
 import geopandas as gpd
 from shapely.geometry import MultiPolygon, Polygon
 
-from scripts.load_data.aoi import AOILoader
+from data_preparation.load_data.aoi import AOILoader
 
 
 def test_resolve_iso_a3():

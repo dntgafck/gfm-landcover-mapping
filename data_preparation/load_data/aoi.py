@@ -1,10 +1,11 @@
-import logging
 from typing import cast
 
 import geopandas as gpd
 
+from utils.logging import get_logger
+
 # Setup basic logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 DEFAULT_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/refs/tags/v5.1.2/geojson/ne_50m_admin_0_countries.geojson"
 

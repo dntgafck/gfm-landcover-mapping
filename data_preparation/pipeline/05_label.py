@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 from tqdm import tqdm
 
-from scripts.load_data.worldcover_labels import WorldCoverLabeler, WorldCoverS3Config
+from data_preparation.load_data.worldcover_labels import WorldCoverLabeler, WorldCoverS3Config
 
 
 def load_params():

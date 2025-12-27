@@ -6,7 +6,7 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from scripts.load_data.worldcover_labels import WorldCoverLabeler
+from data_preparation.load_data.worldcover_labels import WorldCoverLabeler
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def mock_grid_geojson(tmp_path):
     return str(grid_path)
 
 
-@mock.patch("scripts.load_data.worldcover_labels.boto3.client")
+@mock.patch("data_preparation.load_data.worldcover_labels.boto3.client")
 def test_labeling_alignment_assertions(mock_s3, mock_grid_geojson, tmp_path):
     # Setup mock S3
     mock_s3.return_value = mock.Mock()
@@ -60,7 +60,9 @@ def test_labeling_alignment_assertions(mock_s3, mock_grid_geojson, tmp_path):
                 "_mosaic_tiles",
                 return_value=(np.zeros((10, 10)), from_origin(0, 0, 0.1, 0.1), "EPSG:4326", 0),
             ):
-                with mock.patch("scripts.load_data.worldcover_labels.reproject") as mock_reproj:
+                with mock.patch(
+                    "data_preparation.load_data.worldcover_labels.reproject"
+                ) as mock_reproj:
                     out_path = labeler.write_labels_for_image(ref_path)
 
                     # Verify reproject was called with correct target params
