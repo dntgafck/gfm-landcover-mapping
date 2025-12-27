@@ -1,0 +1,71 @@
+# Land-Cover Mapping Pipeline Parameters
+
+# Stage 01-05: Data Loading and Labeling
+aoi:
+  name: ["France", "Germany", "Belgium", "Netherlands", "Italy", "Spain", "Greece"]
+  subregion: null
+  iso_a3: null
+  source: "data/natural-earth/ne_10m_admin_0_countries.geojson"
+
+preprocessing:
+  grid_size_km: 25
+  resolution_m: 10
+
+sampling:
+  enabled: true
+  total_tiles: 2500
+  per_country_min: 50
+  weight_power: 1.0
+  seed: 42
+  country_key: "iso_a3"
+
+download:
+  start_date: "2021-05-01"
+  end_date: "2021-09-30"
+  output_dir: "data/imagery"
+
+labels:
+  version: "v200"
+  output_dir: "data/labels"
+  cache_dir: "data/worldcover/cache"
+
+# Stage 06: Patchification and Indexing
+patchify:
+  imagery_root: data/imagery
+  labels_root: data/labels
+  output_root: data/patches
+  aoi_path: data/aoi.geojson
+  dataset_index_path: data/index/dataset_index.csv
+  spectral_name: spectral.tif
+  scl_name: scl.tif
+  mask_name: mask.tif
+  labels_name: labels.tif
+  manifest_name: manifest.json
+  patch_size: 256
+  stride: 256
+  cloud_scl_codes: [3, 8, 9, 10, 11]
+  min_valid_frac: 0.90
+  max_cloud_frac: 0.10
+  ignore_label_values: [0]
+  compression: LZW
+  skip_unusable: false
+  num_workers: 1
+
+# Stage 08: Split Assignment
+split:
+  input_csv: data/index/dataset_index.csv
+  output_csv: data/index/dataset_index_with_split.csv
+  output_dir: data/index
+  strategy: tile # "tile" or "country"
+  seed: 42
+  config:
+    - name: iid
+      countries: ["France", "Germany", "Belgium", "Netherlands"]
+      splits:
+        train: 0.7
+        val: 0.15
+        test: 0.15
+    - name: ood
+      countries: ["Italy", "Spain", "Greece"]
+      splits:
+        ood: 1.0

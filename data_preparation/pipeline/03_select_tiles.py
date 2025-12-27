@@ -7,7 +7,7 @@ from data_preparation.load_data.processors import TileSampler
 
 
 def load_params():
-    with open("conf/load_data/params.yaml") as f:
+    with open("conf/params.yaml") as f:
         return yaml.safe_load(f)
 
 

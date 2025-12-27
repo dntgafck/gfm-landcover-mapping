@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 
 
 def load_params():
-    with open("conf/load_data/params.yaml") as f:
+    with open("conf/params.yaml") as f:
         return yaml.safe_load(f)
 
 

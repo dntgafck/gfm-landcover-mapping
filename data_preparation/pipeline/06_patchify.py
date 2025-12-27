@@ -2,8 +2,9 @@ import os
 from pathlib import Path
 
 import click
+import geopandas as gpd
 import pandas as pd
-import rasterio
+import rasterio.transform
 import yaml
 from rasterio.windows import Window
 from tqdm import tqdm
@@ -27,7 +28,8 @@ logger = get_logger(__name__)
 @click.option("--force", is_flag=True, help="Force reprocessing of all tiles")
 def main(config: str, limit_tiles: int | None, skip_unusable: bool, force: bool):
     with open(config) as f:
-        cfg = yaml.safe_load(f)
+        cfg_full = yaml.safe_load(f)
+        cfg = cfg_full.get("patchify", cfg_full)  # Fallback to root for backward compatibility
 
     # Setup logging
     setup_logging()
@@ -42,6 +44,8 @@ def main(config: str, limit_tiles: int | None, skip_unusable: bool, force: bool)
     imagery_root = Path(cfg.get("imagery_root", "data/imagery"))
     labels_root = Path(cfg.get("labels_root", "data/labels"))
     output_root = Path(cfg.get("output_root", "data/patches"))
+    aoi_path = Path(cfg.get("aoi_path", "data/aoi.geojson"))
+    index_path = Path(cfg.get("dataset_index_path", "data/index/dataset_index.csv"))
 
     spectral_name = cfg.get("spectral_name", "spectral.tif")
     labels_name = cfg.get("labels_name", "labels.tif")
@@ -59,6 +63,19 @@ def main(config: str, limit_tiles: int | None, skip_unusable: bool, force: bool)
     ignore_label_values = cfg.get("ignore_label_values", [])
     compression = cfg.get("compression", "LZW")
 
+    # Load AOI for correct aoi_id lookup
+    aoi_map = {}
+    if aoi_path.exists():
+        try:
+            aoi_gdf = gpd.read_file(aoi_path)
+            # Map iso_a3 code to aoi_id
+            # The country variable in the loop is the iso_a3 code (e.g. FRA, ESP)
+            if "iso_a3" in aoi_gdf.columns and "aoi_id" in aoi_gdf.columns:
+                aoi_map = dict(zip(aoi_gdf["iso_a3"], aoi_gdf["aoi_id"], strict=False))
+                logger.info("Loaded AOI mapping for %d countries.", len(aoi_map))
+        except Exception as e:
+            logger.warning("Could not load AOI mapping: %s", e)
+
     # Discovery
     tiles = discover_tiles(
         imagery_root=imagery_root,
@@ -72,27 +89,24 @@ def main(config: str, limit_tiles: int | None, skip_unusable: bool, force: bool)
     if limit_tiles:
         tiles = tiles[:limit_tiles]
 
-    # Load existing stats for idempotency/resuming
-    csv_path = output_root / "patch_stats_raw.csv"
-    existing_stats_df = pd.DataFrame()
+    # Load existing index for idempotency/resuming
+    existing_index_df = pd.DataFrame()
     processed_tile_ids = set()
 
-    if csv_path.exists() and not force:
+    if index_path.exists() and not force:
         try:
-            existing_stats_df = pd.read_csv(csv_path)
-            # Filter for tiles that match the current config
-            # If patch_size or stride changed, we should re-process
-            match_mask = (existing_stats_df["patch_size"] == patch_size) & (
-                existing_stats_df["stride"] == stride
+            existing_index_df = pd.read_csv(index_path)
+            match_mask = (existing_index_df["patch_size"] == patch_size) & (
+                existing_index_df["stride"] == stride
             )
-            valid_existing = existing_stats_df[match_mask]
+            valid_existing = existing_index_df[match_mask]
             processed_tile_ids = set(valid_existing["tile_id"].unique())
             logger.info(
-                "Found %d existing tiles in CSV with matching config. They will be skipped.",
+                "Found %d existing tiles in index with matching config. They will be skipped.",
                 len(processed_tile_ids),
             )
         except Exception as e:
-            logger.warning("Could not read existing CSV, starting fresh: %s", e)
+            logger.warning("Could not read existing index, starting fresh: %s", e)
 
     # Filter tiles to process
     tiles_to_process = [t for t in tiles if t["tile_id"] not in processed_tile_ids]
@@ -101,7 +115,7 @@ def main(config: str, limit_tiles: int | None, skip_unusable: bool, force: bool)
         logger.info("All tiles already processed. Nothing to do.")
         return
 
-    all_patch_stats = []
+    all_patch_records = []
     skipped_tiles = []
 
     # Create output dirs
@@ -143,6 +157,16 @@ def main(config: str, limit_tiles: int | None, skip_unusable: bool, force: bool)
 
                 # Read metadata from manifest
                 manifest = read_manifest(tile_info["manifest"])
+                time_data = manifest.get("time")
+                acq_start = time_data.get("start") if isinstance(time_data, dict) else ""
+                acq_end = time_data.get("end") if isinstance(time_data, dict) else ""
+                mosaic_method = manifest.get("mosaic")
+
+                # Get correct aoi_id
+                aoi_id = aoi_map.get(country, "")
+                if not aoi_id:
+                    # Fallback to manifest if available or empty string
+                    aoi_id = manifest.get("aoi_id", "")
 
                 # 2. Window Enumeration (deterministic row-major)
                 windows = []
@@ -222,11 +246,18 @@ def main(config: str, limit_tiles: int | None, skip_unusable: bool, force: bool)
                     with rasterio.open(label_out_path, "w", **label_meta) as dst:
                         dst.write(patch_labels, 1)
 
-                    # Collect Stats
-                    patch_stat = {
+                    # Spatial Anchors (Stage B integration)
+                    transform = rasterio.windows.transform(window, src_spectral.transform)
+                    cx, cy = rasterio.transform.xy(
+                        transform, patch_size / 2.0, patch_size / 2.0, offset="center"
+                    )
+
+                    # Collect Record
+                    patch_rec = {
                         "patch_id": patch_id,
                         "tile_id": tile_id,
                         "country": country,
+                        "aoi_id": aoi_id,
                         "row_off": row_off,
                         "col_off": col_off,
                         "patch_size": patch_size,
@@ -239,10 +270,13 @@ def main(config: str, limit_tiles: int | None, skip_unusable: bool, force: bool)
                         "dominant_class": ls["dominant_class"],
                         "dominant_frac": ls["dominant_frac"],
                         "is_usable": usable,
-                        "acq_start": manifest.get("acq_start"),
-                        "acq_end": manifest.get("acq_end"),
+                        "acq_start": acq_start,
+                        "acq_end": acq_end,
+                        "mosaic_method": mosaic_method,
+                        "center_x": float(cx),
+                        "center_y": float(cy),
                     }
-                    all_patch_stats.append(patch_stat)
+                    all_patch_records.append(patch_rec)
                     tile_patches_written += 1
 
         except Exception as e:
@@ -257,25 +291,25 @@ def main(config: str, limit_tiles: int | None, skip_unusable: bool, force: bool)
                 raise
             continue
 
-    # Merge with existing stats
-    new_stats_df = pd.DataFrame(all_patch_stats)
+    # Merge with existing index
+    new_records_df = pd.DataFrame(all_patch_records)
 
-    if not existing_stats_df.empty:
-        # Keep only existing stats for tiles we didn't just process
-        # This handles the case where limit_tiles was used or tiles were skipped
-        existing_to_keep = existing_stats_df[
-            ~existing_stats_df["tile_id"].isin(new_stats_df["tile_id"].unique())
+    if not existing_index_df.empty:
+        # Keep only existing records for tiles we didn't just process
+        existing_to_keep = existing_index_df[
+            ~existing_index_df["tile_id"].isin(new_records_df["tile_id"].unique())
         ]
-        final_df = pd.concat([existing_to_keep, new_stats_df], ignore_index=True)
+        final_df = pd.concat([existing_to_keep, new_records_df], ignore_index=True)
     else:
-        final_df = new_stats_df
+        final_df = new_records_df
 
-    # Write CSV
+    # Write Index
     if not final_df.empty:
         # Ensure deterministic order
         final_df = final_df.sort_values(["tile_id", "row_off", "col_off"])
-        final_df.to_csv(csv_path, index=False)
-        logger.info("Updated %d patch stats in %s", len(final_df), csv_path)
+        index_path.parent.mkdir(parents=True, exist_ok=True)
+        final_df.to_csv(index_path, index=False)
+        logger.info("Updated %d patch records in %s", len(final_df), index_path)
 
     # Write skipped tiles
     skipped_path = output_root / "skipped_tiles.txt"

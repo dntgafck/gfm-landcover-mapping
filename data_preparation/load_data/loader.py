@@ -10,6 +10,8 @@ from sentinelhub import (
     BBox,
     DataCollection,
     MimeType,
+    MosaickingOrder,
+    ResamplingType,
     SentinelHubRequest,
 )
 from tqdm import tqdm
@@ -133,9 +135,9 @@ class SentinelDataLoader:
                 SentinelHubRequest.input_data(
                     data_collection=self.CDSE_S2_L2A,
                     time_interval=time_interval,
-                    mosaicking_order="mostRecent",
-                    upsampling="NEAREST",
-                    downsampling="NEAREST",
+                    mosaicking_order=MosaickingOrder.MOST_RECENT,
+                    upsampling=ResamplingType.NEAREST,
+                    downsampling=ResamplingType.NEAREST,
                 )
             ],
             responses=[

@@ -3,10 +3,10 @@ stages:
     cmd: python -m data_preparation.pipeline.01_aoi
     deps:
       - data_preparation/pipeline/01_aoi.py
-      - conf/load_data/params.yaml
+      - conf/params.yaml
       - data/natural-earth/ne_10m_admin_0_countries.geojson
     params:
-      - conf/load_data/params.yaml:
+      - conf/params.yaml:
         - aoi
     outs:
       - data/aoi.geojson:
@@ -19,9 +19,9 @@ stages:
       - data_preparation/pipeline/02_grid.py
       - data_preparation/load_data/processors.py
       - data/aoi.geojson
-      - conf/load_data/params.yaml
+      - conf/params.yaml
     params:
-      - conf/load_data/params.yaml:
+      - conf/params.yaml:
         - preprocessing
     outs:
       - data/grid.gpkg
@@ -32,9 +32,9 @@ stages:
       - data_preparation/pipeline/03_select_tiles.py
       - data_preparation/load_data/processors.py
       - data/grid.gpkg
-      - conf/load_data/params.yaml
+      - conf/params.yaml
     params:
-      - conf/load_data/params.yaml:
+      - conf/params.yaml:
         - sampling
     outs:
       - data/grid_selected.gpkg:
@@ -47,9 +47,9 @@ stages:
       - data_preparation/pipeline/04_download.py
       - data_preparation/load_data/loader.py
       - data/grid_selected.gpkg
-      - conf/load_data/params.yaml
+      - conf/params.yaml
     params:
-      - conf/load_data/params.yaml:
+      - conf/params.yaml:
         - download
         - preprocessing
     outs:
@@ -62,9 +62,9 @@ stages:
       - data_preparation/pipeline/05_label.py
       - data/imagery
       - data/worldcover/v200/2021/esa_worldcover_grid.geojson
-      - conf/load_data/params.yaml
+      - conf/params.yaml
     params:
-      - conf/load_data/params.yaml:
+      - conf/params.yaml:
         - labels
         - download
     outs:
@@ -72,7 +72,7 @@ stages:
           persist: true
 
   patchify:
-    cmd: python -m data_preparation.pipeline.06_patchify --config conf/patchify/params.yaml
+    cmd: python -m data_preparation.pipeline.06_patchify --config conf/params.yaml
     deps:
       - data_preparation/pipeline/06_patchify.py
       - data_preparation/patchify/io.py
@@ -80,16 +80,29 @@ stages:
       - utils/logging.py
       - data/imagery
       - data/labels
-      - conf/patchify/params.yaml
+      - data/aoi.geojson
+      - conf/params.yaml
     params:
-      - conf/patchify/params.yaml:
-        - patch_size
-        - stride
-        - min_valid_frac
-        - max_cloud_frac
-        - cloud_scl_codes
-        - ignore_label_values
-        - compression
-        - skip_unusable
+      - conf/params.yaml:
+        - patchify
     outs:
       - data/patches
+      - data/index/dataset_index.csv
+
+  assign_splits:
+    cmd: python -m data_preparation.pipeline.07_assign_splits --config conf/params.yaml
+    deps:
+      - data_preparation/pipeline/07_assign_splits.py
+      - data_preparation/index/hash_split.py
+      - data/index/dataset_index.csv
+      - data/aoi.geojson
+      - conf/params.yaml
+    params:
+      - conf/params.yaml:
+        - split
+    outs:
+      - data/index/dataset_index_with_split.csv
+      - data/index/train_index.csv
+      - data/index/val_index.csv
+      - data/index/test_index.csv
+      - data/index/ood_index.csv
