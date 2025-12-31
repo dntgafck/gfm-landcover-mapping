@@ -269,7 +269,7 @@ def main(config: str, limit_tiles: int | None, skip_unusable: bool, force: bool)
                         "unique_classes": ls["unique_classes"],
                         "dominant_class": ls["dominant_class"],
                         "dominant_frac": ls["dominant_frac"],
-                        "is_usable": usable,
+                        "is_usable": usable,  # TODO: remove
                         "acq_start": acq_start,
                         "acq_end": acq_end,
                         "mosaic_method": mosaic_method,
