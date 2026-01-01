@@ -1,19 +1,18 @@
 from pathlib import Path
 
 import geopandas as gpd
-import yaml
+import hydra
+from omegaconf import DictConfig
 
 from data_preparation.load_data.loader import SentinelDataLoader
+from utils.logging import setup_logging
 
 
-def load_params():
-    with open("conf/params.yaml") as f:
-        return yaml.safe_load(f)
+@hydra.main(config_path="../../conf", config_name="params", version_base="1.2")
+def main(cfg: DictConfig):
+    setup_logging()
 
-
-def main():
-    params = load_params()
-    download_params = params["download"]
+    download_params = cfg["download"]
 
     grid_path = Path("data/grid_selected.gpkg")
     if not grid_path.exists():
@@ -45,7 +44,7 @@ def main():
         loader.download_batch(
             input_data=group,
             time_interval=(download_params["start_date"], download_params["end_date"]),
-            resolution=params["preprocessing"]["resolution_m"],
+            resolution=cfg["preprocessing"]["resolution_m"],
             output_folder=str(country_out),
         )
 

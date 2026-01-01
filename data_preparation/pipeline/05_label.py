@@ -1,21 +1,20 @@
 import os
 from pathlib import Path
 
-import yaml
+import hydra
+from omegaconf import DictConfig
 from tqdm import tqdm
 
 from data_preparation.load_data.worldcover_labels import WorldCoverLabeler, WorldCoverS3Config
+from utils.logging import setup_logging
 
 
-def load_params():
-    with open("conf/params.yaml") as f:
-        return yaml.safe_load(f)
+@hydra.main(config_path="../../conf", config_name="params", version_base="1.2")
+def main(cfg: DictConfig):
+    setup_logging()
 
-
-def main():
-    params = load_params()
-    label_params = params["labels"]
-    download_params = params["download"]
+    label_params = cfg["labels"]
+    download_params = cfg["download"]
 
     # Check for WorldCover grid file
     wc_grid_path = (

@@ -221,3 +221,4 @@ data
 !data/**/*.dvc
 
 .DS_Store
+outputs

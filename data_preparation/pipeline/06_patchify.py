@@ -1,11 +1,11 @@
 import os
 from pathlib import Path
 
-import click
 import geopandas as gpd
+import hydra
 import pandas as pd
 import rasterio.transform
-import yaml
+from omegaconf import DictConfig
 from rasterio.windows import Window
 from tqdm import tqdm
 
@@ -21,16 +21,8 @@ from utils.logging import get_logger, setup_logging
 logger = get_logger(__name__)
 
 
-@click.command()
-@click.option("--config", type=click.Path(exists=True), required=True, help="Path to config YAML")
-@click.option("--limit-tiles", type=int, help="Limit number of tiles to process (for dev)")
-@click.option("--skip-unusable", is_flag=True, help="Skip writing unusable patches")
-@click.option("--force", is_flag=True, help="Force reprocessing of all tiles")
-def main(config: str, limit_tiles: int | None, skip_unusable: bool, force: bool):
-    with open(config) as f:
-        cfg_full = yaml.safe_load(f)
-        cfg = cfg_full.get("patchify", cfg_full)  # Fallback to root for backward compatibility
-
+@hydra.main(config_path="../../conf", config_name="params", version_base="1.2")
+def main(cfg: DictConfig):
     # Setup logging
     setup_logging()
     # Suppress noisy rasterio warnings
@@ -40,28 +32,40 @@ def main(config: str, limit_tiles: int | None, skip_unusable: bool, force: bool)
 
     repo_root = Path.cwd()
 
+    # Access params
+    # For backward compatibility, check if "patchify" is at root or nested?
+    # Hydra loads the structure as is. Based on params.yaml, 'patchify' is a key.
+    patchify_cfg = cfg.get("patchify", {})
+
     # Extract params
-    imagery_root = Path(cfg.get("imagery_root", "data/imagery"))
-    labels_root = Path(cfg.get("labels_root", "data/labels"))
-    output_root = Path(cfg.get("output_root", "data/patches"))
-    aoi_path = Path(cfg.get("aoi_path", "data/aoi.geojson"))
-    index_path = Path(cfg.get("dataset_index_path", "data/index/dataset_index.csv"))
+    imagery_root = Path(patchify_cfg.get("imagery_root", "data/imagery"))
+    labels_root = Path(patchify_cfg.get("labels_root", "data/labels"))
+    output_root = Path(patchify_cfg.get("output_root", "data/patches"))
+    aoi_path = Path(patchify_cfg.get("aoi_path", "data/aoi.geojson"))
+    index_path = Path(patchify_cfg.get("dataset_index_path", "data/index/dataset_index.csv"))
 
-    spectral_name = cfg.get("spectral_name", "spectral.tif")
-    labels_name = cfg.get("labels_name", "labels.tif")
-    scl_name = cfg.get("scl_name", "scl.tif")
-    mask_name = cfg.get("mask_name", "mask.tif")
+    spectral_name = patchify_cfg.get("spectral_name", "spectral.tif")
+    labels_name = patchify_cfg.get("labels_name", "labels.tif")
+    scl_name = patchify_cfg.get("scl_name", "scl.tif")
+    mask_name = patchify_cfg.get("mask_name", "mask.tif")
 
-    patch_size = cfg.get("patch_size", 256)
-    stride = cfg.get("stride", 256)
+    patch_size = patchify_cfg.get("patch_size", 256)
+    stride = patchify_cfg.get("stride", 256)
 
-    cloud_scl_codes = cfg.get(
-        "cloud_scl_codes", [3, 8, 9, 10, 11]
-    )  # Default SCL cloud/shadow codes
-    min_valid_frac = cfg.get("min_valid_frac", 0.90)
-    max_cloud_frac = cfg.get("max_cloud_frac", 0.10)
-    ignore_label_values = cfg.get("ignore_label_values", [])
-    compression = cfg.get("compression", "LZW")
+    # List conversion
+    cloud_scl_codes = list(patchify_cfg.get("cloud_scl_codes", [3, 8, 9, 10, 11]))
+    min_valid_frac = patchify_cfg.get("min_valid_frac", 0.90)
+    max_cloud_frac = patchify_cfg.get("max_cloud_frac", 0.10)
+    ignore_label_values = list(patchify_cfg.get("ignore_label_values", []))
+    compression = patchify_cfg.get("compression", "LZW")
+
+    # Dev flags - no longer CLI options, maybe add to dev-config or use defaults
+    limit_tiles = None  # Override via command line +preprocessing.limit_tiles=N
+    skip_unusable = patchify_cfg.get("skip_unusable", False)
+    force = False  # DVC handles reruns typically
+
+    # Overrides from Hydra command line (e.g. ++patchify.limit_tiles=10) handled if in config.
+    # For now, keeping defaults as standard pipeline behavior.
 
     # Load AOI for correct aoi_id lookup
     aoi_map = {}

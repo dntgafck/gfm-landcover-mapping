@@ -43,9 +43,9 @@ patchify:
   manifest_name: manifest.json
   patch_size: 256
   stride: 256
-  cloud_scl_codes: [3, 8, 9, 10, 11]
+  cloud_scl_codes: [8, 9, 10, 11]
   min_valid_frac: 0.90
-  max_cloud_frac: 0.10
+  max_cloud_frac: 0.20
   ignore_label_values: [0]
   compression: LZW
   skip_unusable: false
@@ -68,3 +68,18 @@ split:
       countries: ["Italy", "Spain", "Greece"]
       splits:
         ood: 1.0
+
+# Stage 08: Stats Computation
+norm_stats:
+  input_index: "data/index/dataset_index_with_split.csv"
+  output_path: "data/stats/norm_stats.json"
+  split_name: "train"
+  cloud_fraction_max: 0.20
+  bands: ["B02", "B03", "B04", "B08"]
+  sampling:
+    n_patches: 2000
+    strategy: "stratified"
+    stratify_by: "country"
+    min_per_strata: 50
+    seed: 42
+  n_pixels_per_patch: 0

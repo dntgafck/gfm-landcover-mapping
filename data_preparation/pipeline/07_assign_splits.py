@@ -1,10 +1,10 @@
 from pathlib import Path
 
-import click
 import geopandas as gpd
+import hydra
 import numpy as np
 import pandas as pd
-import yaml
+from omegaconf import DictConfig, OmegaConf
 
 from data_preparation.index.hash_split import get_stable_hash_float, validate_fractions
 from utils.logging import get_logger, setup_logging
@@ -36,22 +36,20 @@ def assign_splits_to_rank(ranks: np.ndarray, fractions_dict: dict) -> list:
     return results
 
 
-@click.command()
-@click.option(
-    "--config", type=click.Path(exists=True), required=True, help="Path to split config YAML"
-)
-def main(config: str):
+@hydra.main(config_path="../../conf", config_name="params", version_base="1.2")
+def main(cfg: DictConfig):
     setup_logging()
-    with open(config) as f:
-        cfg_full = yaml.safe_load(f)
-        cfg = cfg_full.get("split", cfg_full)
 
-    input_csv = Path(cfg.get("input_csv", "data/index/dataset_index.csv"))
-    output_csv = Path(cfg.get("output_csv", "data/index/dataset_index_with_split.csv"))
-    output_dir = Path(cfg.get("output_dir", "data/index"))
+    # Access config directly
+    split_cfg = cfg.get("split", {})
+
+    input_csv = Path(split_cfg.get("input_csv", "data/index/dataset_index.csv"))
+    output_csv = Path(split_cfg.get("output_csv", "data/index/dataset_index_with_split.csv"))
+    output_dir = Path(split_cfg.get("output_dir", "data/index"))
     aoi_path = Path("data/aoi.geojson")
-    seed = cfg.get("seed", 42)
-    split_configs = cfg.get("config", [])
+    seed = split_cfg.get("seed", 42)
+    # List conversion
+    split_configs = OmegaConf.to_object(split_cfg.get("config", []))
 
     if not input_csv.exists():
         logger.error(f"Input index CSV missing at {input_csv}")

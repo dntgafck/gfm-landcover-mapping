@@ -5,16 +5,16 @@ stages:
     deps:
     - path: conf/params.yaml
       hash: md5
-      md5: d48a8e413366720e03440e9e87174e68
-      size: 1638
+      md5: 79648f1f65b3ce968c1c5da9671be2c5
+      size: 1973
     - path: data/natural-earth/ne_10m_admin_0_countries.geojson
       hash: md5
       md5: 33d2b3758f0b60dc3600961df4fff2ff
       size: 13287234
     - path: data_preparation/pipeline/01_aoi.py
       hash: md5
-      md5: 092e6fff3d663edbe9e1ce44ea13dff4
-      size: 4092
+      md5: 6d3f64e7ffbbc0373e56ae01cc3062a3
+      size: 3912
     params:
       conf/params.yaml:
         aoi:
@@ -39,20 +39,20 @@ stages:
     deps:
     - path: conf/params.yaml
       hash: md5
-      md5: d48a8e413366720e03440e9e87174e68
-      size: 1638
+      md5: 79648f1f65b3ce968c1c5da9671be2c5
+      size: 1973
     - path: data/aoi.geojson
       hash: md5
       md5: 41a16a9b4cb325721ecda11ee61f98a7
       size: 346829
     - path: data_preparation/load_data/processors.py
       hash: md5
-      md5: 47c77b73a2339aee92f83e7dec47129e
-      size: 7308
+      md5: 202cec09b5bebc76f2537b7bd93828e3
+      size: 3866
     - path: data_preparation/pipeline/02_grid.py
       hash: md5
-      md5: e75e1e4f24ae23e1c73fcf89534d14e2
-      size: 1598
+      md5: e0ed2252965355cdecfcbcf9fbd4a5ad
+      size: 1664
     params:
       conf/params.yaml:
         preprocessing:
@@ -61,27 +61,27 @@ stages:
     outs:
     - path: data/grid.gpkg
       hash: md5
-      md5: e631ad5bcf3c4f316e2b85332d4ea604
+      md5: 05e6d2b6cad503948189165835f2e736
       size: 806912
   select_tiles:
     cmd: python -m data_preparation.pipeline.03_select_tiles
     deps:
     - path: conf/params.yaml
       hash: md5
-      md5: d48a8e413366720e03440e9e87174e68
-      size: 1638
+      md5: 79648f1f65b3ce968c1c5da9671be2c5
+      size: 1973
     - path: data/grid.gpkg
       hash: md5
-      md5: e631ad5bcf3c4f316e2b85332d4ea604
+      md5: 05e6d2b6cad503948189165835f2e736
       size: 806912
     - path: data_preparation/load_data/processors.py
       hash: md5
-      md5: 47c77b73a2339aee92f83e7dec47129e
-      size: 7308
+      md5: 202cec09b5bebc76f2537b7bd93828e3
+      size: 3866
     - path: data_preparation/pipeline/03_select_tiles.py
       hash: md5
-      md5: ffae5099185f2f2737e1c4c3a288e55a
-      size: 719
+      md5: 0ba350c61b721f636a2684865a0aacd7
+      size: 871
     params:
       conf/params.yaml:
         sampling:
@@ -94,18 +94,18 @@ stages:
     outs:
     - path: data/grid_selected.gpkg
       hash: md5
-      md5: 035732c44422b92e9fb311b4c4ff60f6
+      md5: f0a414ef25c7c5ef3d7485fcc99b085b
       size: 700416
   download_imagery:
     cmd: python -m data_preparation.pipeline.04_download
     deps:
     - path: conf/params.yaml
       hash: md5
-      md5: d48a8e413366720e03440e9e87174e68
-      size: 1638
+      md5: 79648f1f65b3ce968c1c5da9671be2c5
+      size: 1973
     - path: data/grid_selected.gpkg
       hash: md5
-      md5: 035732c44422b92e9fb311b4c4ff60f6
+      md5: f0a414ef25c7c5ef3d7485fcc99b085b
       size: 700416
     - path: data_preparation/load_data/loader.py
       hash: md5
@@ -113,8 +113,8 @@ stages:
       size: 10010
     - path: data_preparation/pipeline/04_download.py
       hash: md5
-      md5: 609627ce1310a3f46357190b59dc414c
-      size: 1396
+      md5: ce32a5c9fde734816622c0d8db2c886e
+      size: 1459
     params:
       conf/params.yaml:
         download:
@@ -135,8 +135,8 @@ stages:
     deps:
     - path: conf/params.yaml
       hash: md5
-      md5: d48a8e413366720e03440e9e87174e68
-      size: 1638
+      md5: 79648f1f65b3ce968c1c5da9671be2c5
+      size: 1973
     - path: data/imagery
       hash: md5
       md5: b6f442aa92090f42df1be912148f483d.dir
@@ -148,8 +148,8 @@ stages:
       size: 543674
     - path: data_preparation/pipeline/05_label.py
       hash: md5
-      md5: 5f870759b3d7585d32ffac6cdec74c02
-      size: 2387
+      md5: 8766fe05c8d66bca86599d37dd3c928e
+      size: 2450
     params:
       conf/params.yaml:
         download:
@@ -223,13 +223,12 @@ stages:
       size: 168757994328
       nfiles: 405002
   patchify:
-    cmd: python -m data_preparation.pipeline.06_patchify --config
-      conf/params.yaml
+    cmd: python -m data_preparation.pipeline.06_patchify
     deps:
     - path: conf/params.yaml
       hash: md5
-      md5: 4bad501286b19edce514a1289febf53f
-      size: 1599
+      md5: 79648f1f65b3ce968c1c5da9671be2c5
+      size: 1973
     - path: data/aoi.geojson
       hash: md5
       md5: 41a16a9b4cb325721ecda11ee61f98a7
@@ -254,8 +253,8 @@ stages:
       size: 1403
     - path: data_preparation/pipeline/06_patchify.py
       hash: md5
-      md5: 369301888b809a82fabcb62b11c72c32
-      size: 13208
+      md5: c52483afce7df4c1c9e6c6fe59c5da0f
+      size: 13521
     - path: utils/logging.py
       hash: md5
       md5: 1dac22996abdf585b3308278ad1fc5a3
@@ -276,13 +275,12 @@ stages:
           patch_size: 256
           stride: 256
           cloud_scl_codes:
-          - 3
           - 8
           - 9
           - 10
           - 11
           min_valid_frac: 0.9
-          max_cloud_frac: 0.1
+          max_cloud_frac: 0.2
           ignore_label_values:
           - 0
           compression: LZW
@@ -291,37 +289,36 @@ stages:
     outs:
     - path: data/index/dataset_index.csv
       hash: md5
-      md5: 8f7e2ae4bfaaccbdb2f4e3d9b1c6b17d
-      size: 131772316
+      md5: c5a66b8d428c718df5fafb2086fdd1fd
+      size: 132234935
     - path: data/patches
       hash: md5
       md5: 71a8e2eb99eb0b9ecf0517f32ce09a91.dir
       size: 168641348171
       nfiles: 405001
   assign_splits:
-    cmd: python -m data_preparation.pipeline.07_assign_splits --config
-      conf/params.yaml
+    cmd: python -m data_preparation.pipeline.07_assign_splits
     deps:
     - path: conf/params.yaml
       hash: md5
-      md5: 4bad501286b19edce514a1289febf53f
-      size: 1599
+      md5: 79648f1f65b3ce968c1c5da9671be2c5
+      size: 1973
     - path: data/aoi.geojson
       hash: md5
       md5: 41a16a9b4cb325721ecda11ee61f98a7
       size: 346829
     - path: data/index/dataset_index.csv
       hash: md5
-      md5: 8f7e2ae4bfaaccbdb2f4e3d9b1c6b17d
-      size: 131772316
+      md5: c5a66b8d428c718df5fafb2086fdd1fd
+      size: 132234935
     - path: data_preparation/index/hash_split.py
       hash: md5
       md5: 6d5b13007701892abf8fdb9e77fd10f2
       size: 1234
     - path: data_preparation/pipeline/07_assign_splits.py
       hash: md5
-      md5: 50950d5b8e54455eb389a4cacafadcfa
-      size: 5373
+      md5: 13b0dfd50a8869c9876d22c707e28142
+      size: 5390
     params:
       conf/params.yaml:
         split:
@@ -350,21 +347,60 @@ stages:
     outs:
     - path: data/index/dataset_index_with_split.csv
       hash: md5
-      md5: 845ebde1394bdfa2c90ae4409223944b
-      size: 145903771
+      md5: 5247409ac00e657e7c06c7cdd00b24c2
+      size: 146374715
     - path: data/index/ood_index.csv
       hash: md5
-      md5: 6f7537db5f5f7326842583a861a66031
-      size: 68003467
+      md5: 70cc3e333191b32f7a408fd3b454d167
+      size: 68164146
     - path: data/index/test_index.csv
       hash: md5
-      md5: e612a9b0cd6c84e17323bc7f490773ad
-      size: 11608709
+      md5: f983a367f75a22911c8a51dee7d78624
+      size: 11663332
     - path: data/index/train_index.csv
       hash: md5
-      md5: 7907974d80ec65808db920717f3e95b6
-      size: 54567200
+      md5: 7bd7254567b4c445358838b1e8689159
+      size: 54779275
     - path: data/index/val_index.csv
       hash: md5
-      md5: 31529d6a1bdabcbc2a7344d61d168bba
-      size: 11725091
+      md5: a022983b462fc4708b9669cadae942e5
+      size: 11768658
+  compute_norm_stats:
+    cmd: python -m data_preparation.pipeline.08_compute_norm_stats
+    deps:
+    - path: conf/params.yaml
+      hash: md5
+      md5: 79648f1f65b3ce968c1c5da9671be2c5
+      size: 1973
+    - path: data/index/dataset_index_with_split.csv
+      hash: md5
+      md5: 5247409ac00e657e7c06c7cdd00b24c2
+      size: 146374715
+    - path: data_preparation/pipeline/08_compute_norm_stats.py
+      hash: md5
+      md5: a2027c1a62ea4ef6ff8907edd92e31b9
+      size: 8574
+    params:
+      conf/params.yaml:
+        norm_stats:
+          input_index: data/index/dataset_index_with_split.csv
+          output_path: data/stats/norm_stats.json
+          split_name: train
+          cloud_fraction_max: 0.2
+          bands:
+          - B02
+          - B03
+          - B04
+          - B08
+          sampling:
+            n_patches: 2000
+            strategy: stratified
+            stratify_by: country
+            min_per_strata: 50
+            seed: 42
+          n_pixels_per_patch: 0
+    outs:
+    - path: data/stats/norm_stats.json
+      hash: md5
+      md5: 78229f501747b82a056d0fd2812dfb38
+      size: 554

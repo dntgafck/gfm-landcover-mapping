@@ -72,7 +72,7 @@ stages:
           persist: true
 
   patchify:
-    cmd: python -m data_preparation.pipeline.06_patchify --config conf/params.yaml
+    cmd: python -m data_preparation.pipeline.06_patchify
     deps:
       - data_preparation/pipeline/06_patchify.py
       - data_preparation/patchify/io.py
@@ -86,11 +86,13 @@ stages:
       - conf/params.yaml:
         - patchify
     outs:
-      - data/patches
-      - data/index/dataset_index.csv
+      - data/patches:
+          persist: true
+      - data/index/dataset_index.csv:
+          persist: true
 
   assign_splits:
-    cmd: python -m data_preparation.pipeline.07_assign_splits --config conf/params.yaml
+    cmd: python -m data_preparation.pipeline.07_assign_splits
     deps:
       - data_preparation/pipeline/07_assign_splits.py
       - data_preparation/index/hash_split.py
@@ -106,3 +108,16 @@ stages:
       - data/index/val_index.csv
       - data/index/test_index.csv
       - data/index/ood_index.csv
+
+  compute_norm_stats:
+    cmd: python -m data_preparation.pipeline.08_compute_norm_stats
+    deps:
+      - data/index/dataset_index_with_split.csv
+      - data_preparation/pipeline/08_compute_norm_stats.py
+      - conf/params.yaml
+    params:
+      - conf/params.yaml:
+        - norm_stats
+    outs:
+      - data/stats/norm_stats.json:
+          cache: true

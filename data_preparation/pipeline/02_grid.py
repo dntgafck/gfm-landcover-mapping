@@ -1,20 +1,19 @@
 from pathlib import Path
 
 import geopandas as gpd
+import hydra
 import pandas as pd
-import yaml
+from omegaconf import DictConfig
 
 from data_preparation.load_data.processors import GridPreprocessor
+from utils.logging import setup_logging
 
 
-def load_params():
-    with open("conf/params.yaml") as f:
-        return yaml.safe_load(f)
+@hydra.main(config_path="../../conf", config_name="params", version_base="1.2")
+def main(cfg: DictConfig):
+    setup_logging()
 
-
-def main():
-    params = load_params()
-    grid_size = params["preprocessing"]["grid_size_km"]
+    grid_size = cfg["preprocessing"]["grid_size_km"]
 
     aoi_path = Path("data/aoi.geojson")
     if not aoi_path.exists():

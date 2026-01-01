@@ -103,3 +103,95 @@ The final comparison will quantify improvements in accuracy, label-efficiency, a
 
 Deployment
 REST service for inference
+
+
+# Training Data Contract (Frozen)
+
+## Input Artifact
+- CSV: `dataset_index_with_split.csv`
+- One row = one training sample (patch)
+- File is **read-only and immutable**
+
+---
+
+## Required Columns & Semantics
+
+### Identity & Leakage Control
+- `patch_id`: unique sample ID
+- `tile_id`: parent Sentinel-2 tile
+- `group_id`: grouping key
+  **Invariant:** no `group_id` appears in more than one split
+
+### Split Assignment (Authoritative)
+- `split ∈ {train, val, test, ood}`
+- Splits are **pre-assigned and frozen**
+- **OOD is fully held out**
+
+**OOD MUST NOT be used for:**
+- normalization statistics
+- class weights
+- early stopping
+- threshold tuning
+
+---
+
+### Data Paths
+- `spectral_path`: 4-band S2 patch (B02, B03, B04, B08)
+- `label_path`: pixel-aligned ESA WorldCover labels
+- Paths are relative and must exist
+
+---
+
+### Quality & Filtering
+- `cloud_frac`: primary quality signal
+- `valid_frac`: always `1.0` (ignored)
+- `is_usable`: ignored
+
+**Filtering (Dataset-level only):**
+- train / val: `cloud_frac ≤ 0.20`
+- test: fixed per experiment
+- ood: **no filtering**
+
+CSV must **never** be modified by filtering.
+
+---
+
+### Diagnostic-Only Metadata (NOT used in training)
+- Geometry: `row_off`, `col_off`, `patch_size`, `stride`, `center_x`, `center_y`
+- Labels: `dominant_class`, `dominant_frac`, `unique_classes`
+- Acquisition: `acq_start`, `acq_end`, `mosaic_method`
+- Region: `country`, `aoi_id`
+
+---
+
+## Tensor Contract
+
+**Input**
+- `x`: `FloatTensor [4, 256, 256]`
+- Channels: `[B02, B03, B04, B08]`
+- Normalized using frozen IID-train stats
+
+**Target**
+- `y`: `LongTensor [256, 256]`
+- Integer WorldCover class IDs
+
+**Invariant**
+- `x` and `y` are pixel-aligned
+
+---
+
+## Non-Assumptions
+Training code must NOT assume:
+- spatial adjacency
+- class balance
+- country balance
+- cloud-free OOD data
+- usability from `is_usable`
+
+---
+
+## Definition of Done
+- Contract documented
+- Dataset uses only allowed fields
+- Runtime assertions enforce invariants
+- No implicit data-dependent logic

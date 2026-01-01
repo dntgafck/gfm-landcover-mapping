@@ -1,8 +1,9 @@
 from pathlib import Path
 
 import geopandas as gpd
+import hydra
 import pandas as pd
-import yaml
+from omegaconf import DictConfig, OmegaConf
 
 from data_preparation.load_data.aoi import AOILoader
 from utils.logging import get_logger, setup_logging
@@ -10,17 +11,21 @@ from utils.logging import get_logger, setup_logging
 logger = get_logger(__name__)
 
 
-def load_params():
-    with open("conf/params.yaml") as f:
-        return yaml.safe_load(f)
+@hydra.main(config_path="../../conf", config_name="params", version_base="1.2")
+def main(cfg: DictConfig):
+    # Setup logging via utility or hydra's job logging
+    setup_logging()
 
+    # Access params via DictConfig
+    aoi_params = cfg.get("aoi", {})
+    source_path = aoi_params.get("source")
 
-def main():
-    params = load_params()
-    aoi_params = params["aoi"]
+    if not source_path:
+        logger.error("AOI source not defined in configuration.")
+        return
 
     # Initialize loader
-    loader = AOILoader(aoi_params.get("source"))
+    loader = AOILoader(source_path)
 
     out_path = Path("data/aoi.geojson")
     existing_gdf = None
@@ -39,10 +44,14 @@ def main():
 
     # Filter params based on what we already have
     # We primarily filter by 'name' (country list) as that seems to be the main driver
-    requested_names = aoi_params.get("name", [])
+    # DictConfig returns ListConfig for lists, convert to list if needed or iterate directly
+    requested_names = OmegaConf.to_object(aoi_params.get("name", []))
+
+    if not isinstance(requested_names, list):
+        requested_names = []
+
     if requested_names:
         # Filter out names that are already present
-        # Normalize for comparison? (e.g. strict string match for now as per schema)
         new_names = [n for n in requested_names if n not in existing_countries]
 
         if not new_names:
@@ -52,13 +61,13 @@ def main():
         # Update params to only fetch new names
         logger.info(f"Fetching new countries: {new_names}")
         # We need to construct a query that only targets these new names
-        # Copy params and override 'name'
-        query_params = {k: v for k, v in aoi_params.items() if k != "source"}
+        # Use simple dict conversion
+        query_params = OmegaConf.to_container(aoi_params, resolve=True)
+        query_params = {k: v for k, v in query_params.items() if k != "source"}
         query_params["name"] = new_names
     else:
-        # If no specific names requested (e.g. by continent?), we might need different logic
-        # For now, assuming 'name' is the primary filter as per user request
-        query_params = {k: v for k, v in aoi_params.items() if k != "source"}
+        query_params = OmegaConf.to_container(aoi_params, resolve=True)
+        query_params = {k: v for k, v in query_params.items() if k != "source"}
 
     # Load NEW AOIs
     try:
@@ -83,16 +92,8 @@ def main():
         if final_new_gdf.crs != existing_gdf.crs:
             final_new_gdf = final_new_gdf.to_crs(existing_gdf.crs)
 
-        # We need to regenerate IDs or keep them?
-        # If we append, IDs might clash if prefix is static "AOI_00".
-        # Let's re-generate IDs for the whole set or append with offset?
-        # Simple approach: Concat, then perhaps deduplicate if needed, or trust the filter.
-        # Ideally, we should recalculate IDs to be unique.
-
         combined_gdf = pd.concat([existing_gdf, final_new_gdf], ignore_index=True)
-        # Recalculate IDs to ensure uniqueness? Or keep original IDs?
-        # User prompt didn't specify ID constraints, but "AOI_00" style implies sequential.
-        # Let's update IDs.
+        # Recalculate IDs
         combined_gdf["aoi_id"] = [f"AOI_{i:02d}" for i in range(len(combined_gdf))]
 
         final_gdf = combined_gdf
@@ -106,5 +107,4 @@ def main():
 
 
 if __name__ == "__main__":
-    setup_logging()
     main()

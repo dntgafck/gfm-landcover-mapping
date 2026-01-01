@@ -1,19 +1,19 @@
 from pathlib import Path
 
 import geopandas as gpd
-import yaml
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
 from data_preparation.load_data.processors import TileSampler
+from utils.logging import setup_logging
 
 
-def load_params():
-    with open("conf/params.yaml") as f:
-        return yaml.safe_load(f)
+@hydra.main(config_path="../../conf", config_name="params", version_base="1.2")
+def main(cfg: DictConfig):
+    setup_logging()
 
-
-def main():
-    params = load_params()
-    sampling_params = params.get("sampling", {})
+    # OmegaConf -> dict for function
+    sampling_params = OmegaConf.to_container(cfg.get("sampling", {}), resolve=True)
 
     grid_path = Path("data/grid.gpkg")
     out_path = Path("data/grid_selected.gpkg")
