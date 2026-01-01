@@ -10,6 +10,9 @@ import torch
 from torch.utils.data import Dataset
 
 from landcover.datasets.transforms import normalize_image
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class LandCoverPatchDataset(Dataset):

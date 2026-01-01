@@ -9,6 +9,7 @@ import torch
 sys.path.append(os.getcwd())
 
 from landcover.datasets.datamodule import LandCoverDataModule
+from utils.logging import setup_logging
 
 
 def denormalize(img_tensor, mean, std):
@@ -20,6 +21,7 @@ def denormalize(img_tensor, mean, std):
 
 
 def main():
+    setup_logging()
     print("Initializing Smoke Test...")
 
     # Config
