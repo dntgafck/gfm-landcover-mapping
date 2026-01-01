@@ -29,7 +29,7 @@ matplotlib = ">=3.10.8, <4"
 click = "*"
 geopandas = ">=1.1.2, <2"
 requests-oauthlib = ">=2.0.0, <3"
-boto3 = ">=1.42.16, <2"
+boto3 = "*"
 
 [feature.dev.pypi-dependencies]
 pre-commit = "*"
@@ -37,8 +37,7 @@ ruff = "*"
 mypy = "*"
 types-requests = "*"
 pytest = "*"
-dvc = "*"
-dvc-gdrive = "*"
+dvc = { version = ">=3.65.0, <4", extras = ["s3"] }
 jupyterlab = "*"
 seaborn = ">=0.13.2, <0.14"
 

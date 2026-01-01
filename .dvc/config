@@ -1,10 +1,9 @@
 [core]
-    remote = gdrive
+    remote = r2
     autostage = true
 [cache]
     type = "reflink,hardlink"
-['remote "gdrive"']
-    url = gdrive://1ao3ih9mWXEpUpo-wEkmv3HRdNJAWVoCC
-    gdrive_use_service_account = false
-    gdrive_client_id = ${GDRIVE_CLIENT_ID}
-    gdrive_client_secret = ${GDRIVE_CLIENT_SECRET}
+['remote "r2"']
+    url = s3://gfm-landcover-mapping/dvc-cache
+    endpointurl = https://6fe4e86315676774237ab53c6f9352b7.r2.cloudflarestorage.com
+    region = auto
