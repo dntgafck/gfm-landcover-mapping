@@ -20,6 +20,8 @@ pyproj = "*"
 ipykernel = "*"
 jupyterlab = "*"
 numpy = ">=2.4.0,<3"
+pytorch = ">=2.9.1,<3"
+torchvision = ">=0.24.1,<0.25"
 
 [pypi-dependencies]
 sentinelhub = ">=3.11.3, <4"
@@ -31,6 +33,8 @@ geopandas = ">=1.1.2, <2"
 requests-oauthlib = ">=2.0.0, <3"
 boto3 = "*"
 hydra-core = ">=1.3.2, <2"
+pytorch-lightning = ">=2.6.0, <3"
+torchmetrics = ">=1.8.2, <2"
 
 [feature.dev.pypi-dependencies]
 pre-commit = "*"
