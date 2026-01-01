@@ -26,10 +26,6 @@ def main():
     index_path = "data/index/dataset_index_with_split.csv"
     norm_stats_path = "data/stats/norm_stats.json"
 
-    if not os.path.exists(index_path):
-        print(f"ERROR: Index not found at {index_path}")
-        return
-
     dm = LandCoverDataModule(
         index_path=index_path,
         norm_stats_path=norm_stats_path,
