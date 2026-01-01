@@ -50,40 +50,40 @@ class LandCoverPatchDataset(Dataset):
         self.augmentations = augmentations
 
         # Load Index CSV via DVC
-        print(f"Loading index from {index_path} via dvc.api...")
+        logger.info(f"Loading index from {index_path} via dvc.api...")
         with dvc.api.open(index_path, repo=repo_root, mode="r") as f:
             self.df = pd.read_csv(f)
 
         # Filter by Split
         initial_count = len(self.df)
         self.df = self.df[self.df["split"] == split].copy()
-        print(f"Split '{split}': {len(self.df)}/{initial_count} patches.")
+        logger.info(f"Split '{split}': {len(self.df)}/{initial_count} patches.")
 
         # Apply Cloud Filtering
         if apply_cloud_filter:
             pre_filter_count = len(self.df)
             self.df = self.df[self.df["cloud_frac"] <= cloud_frac_max]
-            print(
+            logger.info(
                 f"Cloud Filter (max {cloud_frac_max}): "
                 f"{len(self.df)}/{pre_filter_count} patches kept."
             )
         else:
-            print(f"Cloud Filter: DISABLED for split '{split}'.")
+            logger.info(f"Cloud Filter: DISABLED for split '{split}'.")
 
         if debug_limit:
             self.df = self.df.iloc[:debug_limit]
 
         # Load Norm Stats via DVC
-        print(f"Loading norm stats from {norm_stats_path} via dvc.api...")
+        logger.info(f"Loading norm stats from {norm_stats_path} via dvc.api...")
         with dvc.api.open(norm_stats_path, repo=repo_root, mode="r") as f:
             stats = json.load(f)
             self.bands = stats["bands"]
             self.mean = stats["mean"]
             self.std = stats["std"]
 
-        print(f"Dataset '{split}' initialized. Size: {len(self.df)}")
+        logger.info(f"Dataset '{split}' initialized. Size: {len(self.df)}")
         if len(self.df) == 0:
-            print("WARNING: Dataset is empty!")
+            logger.warning("WARNING: Dataset is empty!")
 
     def __len__(self):
         return len(self.df)
@@ -122,7 +122,7 @@ class LandCoverPatchDataset(Dataset):
                         mask = mask.astype(np.int64)
 
         except Exception as e:
-            print(f"Error loading sample {idx} (patch_id: {row.get('patch_id')}): {e}")
+            logger.error(f"Error loading sample {idx} (patch_id: {row.get('patch_id')}): {e}")
             raise e
 
         # Assert shapes
