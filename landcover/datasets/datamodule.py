@@ -1,4 +1,8 @@
+import random
+
+import numpy as np
 import pytorch_lightning as pl
+import torch
 from torch.utils.data import DataLoader
 
 from landcover.datasets.dataset import LandCoverPatchDataset
@@ -37,10 +41,21 @@ class LandCoverDataModule(pl.LightningDataModule):
         self.test_ds: LandCoverPatchDataset | None = None
         self.ood_ds: LandCoverPatchDataset | None = None
 
+    @staticmethod
+    def worker_init_fn(worker_id: int):
+        """Ensure each worker has a different seed."""
+        worker_seed = torch.initial_seed() % 2**32
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
+
     def setup(self, stage: str | None = None):
         if stage == "fit" or stage is None:
             # Train: Filtered, Augmented
-            augmentations = LandCoverAugmentations() if self.augment else None
+            generator = torch.Generator()
+            generator.manual_seed(self.seed)
+
+            augmentations = LandCoverAugmentations(generator=generator) if self.augment else None
+
             self.train_ds = LandCoverPatchDataset(
                 index_path=self.index_path,
                 split="train",
@@ -81,6 +96,9 @@ class LandCoverDataModule(pl.LightningDataModule):
             )
 
     def train_dataloader(self):
+        generator = torch.Generator()
+        generator.manual_seed(self.seed)
+
         return DataLoader(
             self.train_ds,
             batch_size=self.batch_size,
@@ -88,6 +106,8 @@ class LandCoverDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             pin_memory=True,
             drop_last=True,
+            worker_init_fn=self.worker_init_fn,
+            generator=generator,
         )
 
     def val_dataloader(self):
@@ -96,6 +116,7 @@ class LandCoverDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
+            worker_init_fn=self.worker_init_fn,
             pin_memory=True,
         )
 
@@ -106,7 +127,9 @@ class LandCoverDataModule(pl.LightningDataModule):
             DataLoader(
                 self.test_ds,
                 batch_size=self.batch_size,
+                shuffle=False,
                 num_workers=self.num_workers,
+                worker_init_fn=self.worker_init_fn,
                 pin_memory=True,
             )
         ]
@@ -115,7 +138,9 @@ class LandCoverDataModule(pl.LightningDataModule):
                 DataLoader(
                     self.ood_ds,
                     batch_size=self.batch_size,
+                    shuffle=False,
                     num_workers=self.num_workers,
+                    worker_init_fn=self.worker_init_fn,
                     pin_memory=True,
                 )
             )
