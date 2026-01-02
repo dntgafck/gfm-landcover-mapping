@@ -1,12 +1,17 @@
+import os
 import random
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
+from dvc.repo import Repo
 from torch.utils.data import DataLoader
 
 from landcover.datasets.dataset import LandCoverPatchDataset
 from landcover.datasets.transforms import LandCoverAugmentations
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class LandCoverDataModule(pl.LightningDataModule):
@@ -41,6 +46,25 @@ class LandCoverDataModule(pl.LightningDataModule):
         self.test_ds: LandCoverPatchDataset | None = None
         self.ood_ds: LandCoverPatchDataset | None = None
 
+    def prepare_data(self):
+        """Ensure data is local before training starts."""
+        targets = [self.index_path, self.norm_stats_path, "data/patches"]
+        missing_targets = [t for t in targets if not os.path.exists(t)]
+
+        if not missing_targets:
+            logger.info("All data targets already exist locally.")
+            return
+
+        logger.info(f"Pulling missing data targets from DVC: {missing_targets}")
+        try:
+            repo = Repo(search_parent_directories=True)
+            repo.pull(targets=missing_targets)
+        except Exception as e:
+            logger.error(f"Failed to pull data from DVC: {e}")
+            logger.warning(
+                "Proceeding assuming data might be partially available or manually managed."
+            )
+
     @staticmethod
     def worker_init_fn(worker_id: int):
         """Ensure each worker has a different seed."""
@@ -51,10 +75,7 @@ class LandCoverDataModule(pl.LightningDataModule):
     def setup(self, stage: str | None = None):
         if stage == "fit" or stage is None:
             # Train: Filtered, Augmented
-            generator = torch.Generator()
-            generator.manual_seed(self.seed)
-
-            augmentations = LandCoverAugmentations(generator=generator) if self.augment else None
+            augmentations = LandCoverAugmentations() if self.augment else None
 
             self.train_ds = LandCoverPatchDataset(
                 index_path=self.index_path,
@@ -95,53 +116,49 @@ class LandCoverDataModule(pl.LightningDataModule):
                 augmentations=None,
             )
 
-    def train_dataloader(self):
-        generator = torch.Generator()
-        generator.manual_seed(self.seed)
+    def _get_loader_kwargs(self, shuffle: bool = False):
+        kwargs = {
+            "batch_size": self.batch_size,
+            "shuffle": shuffle,
+            "num_workers": self.num_workers,
+            "pin_memory": True,
+            "worker_init_fn": self.worker_init_fn,
+        }
+        if self.num_workers > 0:
+            kwargs.update(
+                {
+                    "persistent_workers": True,
+                    "prefetch_factor": 2,
+                }
+            )
+        return kwargs
 
+    def train_dataloader(self):
         return DataLoader(
             self.train_ds,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-            pin_memory=True,
             drop_last=True,
-            worker_init_fn=self.worker_init_fn,
-            generator=generator,
+            **self._get_loader_kwargs(shuffle=True),
         )
 
     def val_dataloader(self):
         return DataLoader(
             self.val_ds,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            worker_init_fn=self.worker_init_fn,
-            pin_memory=True,
+            **self._get_loader_kwargs(shuffle=False),
         )
 
     def test_dataloader(self):
         # Return list of loaders: [IID_Test, OOD_Test]
-        # Or just IID? Usually Trainer treats list as separate dataloaders
         loaders = [
             DataLoader(
                 self.test_ds,
-                batch_size=self.batch_size,
-                shuffle=False,
-                num_workers=self.num_workers,
-                worker_init_fn=self.worker_init_fn,
-                pin_memory=True,
+                **self._get_loader_kwargs(shuffle=False),
             )
         ]
         if self.ood_ds is not None and len(self.ood_ds) > 0:
             loaders.append(
                 DataLoader(
                     self.ood_ds,
-                    batch_size=self.batch_size,
-                    shuffle=False,
-                    num_workers=self.num_workers,
-                    worker_init_fn=self.worker_init_fn,
-                    pin_memory=True,
+                    **self._get_loader_kwargs(shuffle=False),
                 )
             )
         return loaders
@@ -149,5 +166,6 @@ class LandCoverDataModule(pl.LightningDataModule):
     def ood_dataloader(self):
         """Explicit accessor for OOD loader if needed separately"""
         return DataLoader(
-            self.ood_ds, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True
+            self.ood_ds,
+            **self._get_loader_kwargs(shuffle=False),
         )

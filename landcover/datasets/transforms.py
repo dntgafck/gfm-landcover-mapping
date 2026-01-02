@@ -13,11 +13,9 @@ class LandCoverAugmentations:
         self,
         key_image: str = "image",
         key_mask: str = "mask",
-        generator: torch.Generator | None = None,
     ):
         self.key_image = key_image
         self.key_mask = key_mask
-        self.generator = generator
 
     def __call__(self, sample: dict[str, Any]) -> dict[str, Any]:
         """
@@ -31,18 +29,18 @@ class LandCoverAugmentations:
         mask = sample[self.key_mask]
 
         # Random Horizontal Flip
-        if torch.rand(1, generator=self.generator).item() > 0.5:
+        if torch.rand(1).item() > 0.5:
             image = torch.flip(image, [-1])
             mask = torch.flip(mask, [-1])
 
         # Random Vertical Flip
-        if torch.rand(1, generator=self.generator).item() > 0.5:
+        if torch.rand(1).item() > 0.5:
             image = torch.flip(image, [-2])
             mask = torch.flip(mask, [-2])
 
         # Random 90-degree Rotation (0, 90, 180, 270)
         # torch.randint is [low, high)
-        k = torch.randint(0, 4, (1,), generator=self.generator).item()
+        k = torch.randint(0, 4, (1,)).item()
         if k > 0:
             image = torch.rot90(image, k, [-2, -1])
             mask = torch.rot90(mask, k, [-2, -1])

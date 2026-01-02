@@ -90,7 +90,6 @@ def train(cfg: DictConfig):
         **trainer_kwargs,
         callbacks=callbacks,
         logger=pl.loggers.CSVLogger("logs", name="landcover_segmentation"),
-        deterministic=False,
     )
 
     # 7. Run Train & Test

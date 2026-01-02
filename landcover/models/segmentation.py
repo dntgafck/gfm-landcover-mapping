@@ -73,7 +73,9 @@ class LandCoverSegmentationModule(pl.LightningModule):
         loss, logits, masks = self._shared_step(batch, batch_idx, "train")
 
         # Log training loss
-        self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log(
+            "train/loss", loss, on_step=True, on_epoch=True, prog_bar=True, batch_size=masks.size(0)
+        )
 
         # Update metrics
         self.train_metrics.update(logits, masks)
@@ -90,7 +92,9 @@ class LandCoverSegmentationModule(pl.LightningModule):
         loss, logits, masks = self._shared_step(batch, batch_idx, "val")
 
         # Log validation loss
-        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log(
+            "val/loss", loss, on_step=False, on_epoch=True, prog_bar=True, batch_size=masks.size(0)
+        )
 
         # Update metrics
         self.val_metrics.update(logits, masks)
@@ -114,12 +118,26 @@ class LandCoverSegmentationModule(pl.LightningModule):
             # IID Test
             self.test_iid_metrics.update(logits, masks)
             self.test_iid_iou_per_class.update(logits, masks)
-            self.log("test_iid/loss", loss, on_step=False, on_epoch=True, add_dataloader_idx=False)
+            self.log(
+                "test_iid/loss",
+                loss,
+                on_step=False,
+                on_epoch=True,
+                add_dataloader_idx=False,
+                batch_size=masks.size(0),
+            )
         else:
             # OOD Test
             self.test_ood_metrics.update(logits, masks)
             self.test_ood_iou_per_class.update(logits, masks)
-            self.log("test_ood/loss", loss, on_step=False, on_epoch=True, add_dataloader_idx=False)
+            self.log(
+                "test_ood/loss",
+                loss,
+                on_step=False,
+                on_epoch=True,
+                add_dataloader_idx=False,
+                batch_size=masks.size(0),
+            )
 
     def on_test_epoch_end(self):
         # Log IID metrics

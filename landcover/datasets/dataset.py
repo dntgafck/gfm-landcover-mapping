@@ -91,35 +91,44 @@ class LandCoverPatchDataset(Dataset):
     def __getitem__(self, idx: int) -> dict[str, Any]:
         row = self.df.iloc[idx]
 
-        # Paths
+        # Paths (relative to repo root)
         spectral_path = row["spectral_path"]
         label_path = row["label_path"]
 
+        # Ensure local paths are respected
+        import os
+
+        local_spectral_path = os.path.join(self.repo_root, spectral_path)
+        local_label_path = os.path.join(self.repo_root, label_path)
+
+        # Check local existence
+        if not os.path.exists(local_spectral_path):
+            raise FileNotFoundError(
+                f"Spectral patch not found at {local_spectral_path}. "
+                "Ensure DataModule.prepare_data() has run or run 'dvc pull'."
+            )
+        if not os.path.exists(local_label_path):
+            raise FileNotFoundError(
+                f"Label patch not found at {local_label_path}. "
+                "Ensure DataModule.prepare_data() has run or run 'dvc pull'."
+            )
+
         # Read Spectral Data (4 bands)
-        # using dvc.api.open -> read bytes -> rasterio.MemoryFile
         try:
-            with dvc.api.open(spectral_path, repo=self.repo_root, mode="rb") as f:
-                content = f.read()
-                with rasterio.MemoryFile(content) as memfile:
-                    with memfile.open() as src:
-                        # shape: (C, H, W)
-                        image = src.read()
+            with rasterio.open(local_spectral_path) as src:
+                # shape: (C, H, W)
+                image = src.read()
 
-                        if image.shape[0] != 4:
-                            raise ValueError(
-                                f"Expected 4 bands, got {image.shape[0]} at {spectral_path}"
-                            )
+                if image.shape[0] != 4:
+                    raise ValueError(f"Expected 4 bands, got {image.shape[0]} at {spectral_path}")
 
-                        image = image.astype(np.float32)
+                image = image.astype(np.float32)
 
             # Read Label Data (1 band)
-            with dvc.api.open(label_path, repo=self.repo_root, mode="rb") as f:
-                content = f.read()
-                with rasterio.MemoryFile(content) as memfile:
-                    with memfile.open() as src:
-                        # shape: (1, H, W) -> squeeze to (H, W)
-                        mask = src.read(1)
-                        mask = mask.astype(np.int64)
+            with rasterio.open(local_label_path) as src:
+                # shape: (1, H, W) -> squeeze to (H, W)
+                mask = src.read(1)
+                mask = mask.astype(np.int64)
 
         except Exception as e:
             logger.error(f"Error loading sample {idx} (patch_id: {row.get('patch_id')}): {e}")
