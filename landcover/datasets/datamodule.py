@@ -48,17 +48,22 @@ class LandCoverDataModule(pl.LightningDataModule):
 
     def prepare_data(self):
         """Ensure data is local before training starts."""
-        targets = [self.index_path, self.norm_stats_path, "data/patches"]
-        missing_targets = [t for t in targets if not os.path.exists(t)]
+        # Check if basic data markers exist
+        basic_data_exists = os.path.exists(self.index_path) and os.path.exists(self.norm_stats_path)
+        patches_exist = os.path.exists("data/patches")
 
-        if not missing_targets:
-            logger.info("All data targets already exist locally.")
+        if basic_data_exists and patches_exist:
+            logger.info("Main data targets already exist locally.")
             return
 
-        logger.info(f"Pulling missing data targets from DVC: {missing_targets}")
+        # Stage names from dvc.yaml that produce the required data
+        # 'assign_splits' -> index, 'compute_norm_stats' -> stats, 'patchify' -> patches
+        targets = ["assign_splits", "compute_norm_stats", "patchify"]
+
+        logger.info(f"Pulling data from DVC using stage names: {targets}")
         try:
-            repo = Repo(search_parent_directories=True)
-            repo.pull(targets=missing_targets)
+            repo = Repo()
+            repo.pull(targets=targets)
         except Exception as e:
             logger.error(f"Failed to pull data from DVC: {e}")
             logger.warning(
