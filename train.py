@@ -1,5 +1,6 @@
 import hydra
 import pytorch_lightning as pl
+import torch
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
@@ -9,6 +10,9 @@ from landcover.models.unet import UNetBaseline
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Optimize for Tensor Cores
+torch.set_float32_matmul_precision("high")
 
 
 @hydra.main(config_path="conf", config_name="train", version_base="1.3")
@@ -86,7 +90,7 @@ def train(cfg: DictConfig):
         **trainer_kwargs,
         callbacks=callbacks,
         logger=pl.loggers.CSVLogger("logs", name="landcover_segmentation"),
-        deterministic=True,
+        deterministic=False,
     )
 
     # 7. Run Train & Test
