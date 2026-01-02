@@ -96,6 +96,45 @@ def train(cfg: DictConfig):
     logger.info("Starting training...")
     trainer.fit(segmentation_module, datamodule=datamodule)
 
+    # 8. Model Export
+    logger.info(f"Exporting model to {cfg.export_dir}...")
+    best_model_path = trainer.checkpoint_callback.best_model_path
+    if best_model_path:
+        logger.info(f"Loading best model from {best_model_path}")
+        # Load best model
+        export_module = LandCoverSegmentationModule.load_from_checkpoint(
+            best_model_path, model=model
+        )
+        export_module.eval()
+
+        # Create export directory
+        import os
+        import shutil
+
+        os.makedirs(cfg.export_dir, exist_ok=True)
+
+        # Export to ONNX
+        try:
+            onnx_path = os.path.join(cfg.export_dir, cfg.onnx_filename)
+            dummy_input = torch.randn(1, cfg.model.in_channels, 256, 256)
+            export_module.to_onnx(onnx_path, input_sample=dummy_input, export_params=True)
+            logger.info(f"Model exported to {onnx_path}")
+        except Exception as e:
+            logger.warning(f"Failed to export to ONNX: {e}")
+            logger.info(
+                "The model data (checkpoint, stats, config) is still saved in the export directory."
+            )
+
+        # Copy norm stats
+        shutil.copy(cfg.data.norm_stats_path, os.path.join(cfg.export_dir, "norm_stats.json"))
+
+        # Save config
+        with open(os.path.join(cfg.export_dir, "model_config.yaml"), "w") as f:
+            f.write(OmegaConf.to_yaml(cfg))
+        logger.info("Export metadata saved.")
+    else:
+        logger.warning("No best model checkpoint found. Skipping export.")
+
     logger.info("Starting testing...")
     # Test using the best checkpoint
     trainer.test(segmentation_module, datamodule=datamodule, ckpt_path="best")

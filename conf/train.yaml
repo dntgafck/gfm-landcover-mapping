@@ -1,6 +1,8 @@
 # Training Configuration
 seed: 42
 debug: false
+export_dir: "exports"
+onnx_filename: "model.onnx"
 
 data:
   index_path: "data/index/dataset_index_with_split.csv"

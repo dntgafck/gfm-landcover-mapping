@@ -221,4 +221,6 @@ data
 !data/**/*.dvc
 
 .DS_Store
-outputs
+exports/
+logs/
+outputs/
