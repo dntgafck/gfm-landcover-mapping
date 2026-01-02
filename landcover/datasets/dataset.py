@@ -133,6 +133,24 @@ class LandCoverPatchDataset(Dataset):
         image_t = torch.from_numpy(image)  # (C, H, W)
         mask_t = torch.from_numpy(mask)  # (H, W)
 
+        # Remap ESA WorldCover labels to contiguous [0, 10]
+        # 10->0, 20->1, 30->2, 40->3, 50->4, 60->5, 70->6, 80->7, 90->8, 95->9, 100->10
+        # Others -> 255 (ignore)
+        remapped_mask = torch.full_like(mask_t, 255)
+        remapped_mask[mask_t == 10] = 0
+        remapped_mask[mask_t == 20] = 1
+        remapped_mask[mask_t == 30] = 2
+        remapped_mask[mask_t == 40] = 3
+        remapped_mask[mask_t == 50] = 4
+        remapped_mask[mask_t == 60] = 5
+        remapped_mask[mask_t == 70] = 6
+        remapped_mask[mask_t == 80] = 7
+        remapped_mask[mask_t == 90] = 8
+        remapped_mask[mask_t == 95] = 9
+        remapped_mask[mask_t == 100] = 10
+
+        mask_t = remapped_mask
+
         # Basic alignment check
         if torch.isnan(image_t).any() or torch.isinf(image_t).any():
             raise ValueError(f"NaN/Inf found in image {spectral_path}")

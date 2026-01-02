@@ -1,0 +1,45 @@
+# Training Configuration
+seed: 42
+debug: false
+
+data:
+  index_path: "data/index/dataset_index_with_split.csv"
+  norm_stats_path: "data/stats/norm_stats.json"
+  batch_size: 32
+  num_workers: 4
+  cloud_frac_max: 0.20
+  test_apply_cloud_filter: true
+  augment: true
+
+model:
+  in_channels: 4
+  num_classes: 11
+  base_channels: 32
+  num_stages: 4
+  norm_type: "batch"
+  upsample_type: "bilinear"
+
+module:
+  lr: 1e-3
+  weight_decay: 1e-4
+  scheduler_step_size: 10
+  scheduler_gamma: 0.1
+  ignore_index: 255
+
+trainer:
+  max_epochs: 50
+  accelerator: "auto"
+  devices: 1
+  precision: "32-true"
+  log_every_n_steps: 10
+
+callbacks:
+  early_stopping:
+    monitor: "val/mIoU"
+    patience: 10
+    mode: "max"
+  model_checkpoint:
+    monitor: "val/mIoU"
+    save_top_k: 1
+    mode: "max"
+    filename: "best-{epoch:02d}-{val_mIoU:.3f}"
