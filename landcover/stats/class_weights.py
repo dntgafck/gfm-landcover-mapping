@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+import dvc.api
 import hydra
 import numpy as np
 import pandas as pd
@@ -34,10 +35,10 @@ def compute_class_weights(
     if repo_root is None:
         repo_root = Path.cwd()
 
-    if not index_path.exists():
-        raise FileNotFoundError(f"Index file not found: {index_path}")
-
-    df = pd.read_csv(index_path)
+    # Load Index via DVC
+    logger.info(f"Loading index from {index_path} via dvc.api...")
+    with dvc.api.open(str(index_path), repo=str(repo_root), mode="r") as f:
+        df = pd.read_csv(f)
 
     # Filter
     if "split" in df.columns:

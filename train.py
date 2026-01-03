@@ -58,6 +58,8 @@ def train(cfg: DictConfig):
             not weights_path or not os.path.exists(weights_path)
         ):
             logger.info("Class weights missing or not specified. Computing...")
+            # Ensure data is present!
+            datamodule.prepare_data()
             # If path not specified, use a default
             weights_path = weights_path or "data/stats/class_weights.json"
             class_weights = compute_class_weights(
