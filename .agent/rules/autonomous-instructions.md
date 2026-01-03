@@ -56,10 +56,10 @@ graph TD
 ### 2. Data Contract Adherence
 - Respect the **Training Data Contract** in \`README.md\`.
 - Never modify the split assignment in \`dataset_index_with_split.csv\` during training.
-- OOD data is **strictly read-only** for testing and must never influence normalization or early stopping.
+- OOD data is \`strictly read-only\` for testing and must never influence normalization or early stopping.
 
 ### 3. Workflow Patterns
-- **Logging**: Use \`logging.getLogger(__name__)\`. No \`print\` statements in library code (\`landcover/\`) or pipeline scripts.
+- **Logging**: Use \`utils.logging.setup_logging()\` in main entry points and \`logging.getLogger(__name__)\` in modules. No \`print\` statements in library code (\`landcover/\`) or pipeline scripts.
 - **Config**: Hyperparameters and paths must be derived from \`conf/params.yaml\` or \`conf/*.yaml\` via Hydra.
 - **DVC Updates**: Any change to data processing logic must be accompanied by an update/check of \`dvc.yaml\`.
 
