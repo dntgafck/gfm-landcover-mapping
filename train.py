@@ -7,6 +7,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from landcover.datasets.datamodule import LandCoverDataModule
 from landcover.models.segmentation import LandCoverSegmentationModule
 from landcover.models.unet import UNetBaseline
+from landcover.stats.class_weights import compute_class_weights
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -44,14 +45,52 @@ def train(cfg: DictConfig):
     )
 
     # 4. Instantiate LightningModule
+    module_cfg = cfg.module
+
+    # Load class weights if path is provided and loss is weighted
+    class_weights = None
+    if module_cfg.loss.name in ["weighted_ce", "weighted_ce_dice"]:
+        weights_path = module_cfg.loss.get("class_weights_path")
+
+        import os
+
+        if module_cfg.loss.get("compute_if_missing") and (
+            not weights_path or not os.path.exists(weights_path)
+        ):
+            logger.info("Class weights missing or not specified. Computing...")
+            # If path not specified, use a default
+            weights_path = weights_path or "data/stats/class_weights.json"
+            class_weights = compute_class_weights(
+                index_path=cfg.data.index_path,
+                output_path=weights_path,
+                split_name="train",
+                cloud_frac_max=cfg.data.cloud_frac_max,
+                num_classes=cfg.model.num_classes,
+                ignore_index=module_cfg.ignore_index,
+                min_weight=module_cfg.loss.get("min_weight", 0.25),
+                max_weight=module_cfg.loss.get("max_weight", 4.0),
+            )
+        elif weights_path and os.path.exists(weights_path):
+            import json
+
+            logger.info(f"Loading class weights from {weights_path}")
+            with open(weights_path) as f:
+                weights_data = json.load(f)
+                class_weights = weights_data["class_weights"]
+
     segmentation_module = LandCoverSegmentationModule(
         model=model,
         num_classes=cfg.model.num_classes,
-        ignore_index=cfg.module.ignore_index,
-        lr=cfg.module.lr,
-        weight_decay=cfg.module.weight_decay,
-        scheduler_step_size=cfg.module.scheduler_step_size,
-        scheduler_gamma=cfg.module.scheduler_gamma,
+        ignore_index=module_cfg.ignore_index,
+        lr=module_cfg.lr,
+        weight_decay=module_cfg.weight_decay,
+        loss_type=module_cfg.loss.name,
+        dice_weight=module_cfg.loss.get("dice_weight", 0.2),
+        class_weights=class_weights,
+        scheduler_type=module_cfg.scheduler.name,
+        scheduler_step_size=module_cfg.scheduler.get("step_size", 20),
+        scheduler_gamma=module_cfg.scheduler.get("gamma", 0.1),
+        T_max=module_cfg.scheduler.get("T_max", cfg.trainer.max_epochs),
     )
 
     # 5. Callbacks

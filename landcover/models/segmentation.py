@@ -1,8 +1,70 @@
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torchmetrics import MetricCollection
 from torchmetrics.classification import MulticlassF1Score, MulticlassJaccardIndex
+
+
+class DiceLoss(nn.Module):
+    """
+    Dice Loss for multi-class segmentation.
+    """
+
+    def __init__(self, ignore_index: int = 255, smooth: float = 1.0):
+        super().__init__()
+        self.ignore_index = ignore_index
+        self.smooth = smooth
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        num_classes = logits.shape[1]
+        probs = F.softmax(logits, dim=1)
+
+        # Create mask for valid pixels
+        mask = (targets != self.ignore_index).float().unsqueeze(1)
+
+        # One-hot encode targets
+        targets_clamped = targets.clone()
+        targets_clamped[targets == self.ignore_index] = 0
+        targets_one_hot = F.one_hot(targets_clamped, num_classes).permute(0, 3, 1, 2).float()
+
+        # Apply mask
+        probs = probs * mask
+        targets_one_hot = targets_one_hot * mask
+
+        dims = (0, 2, 3)
+        intersection = torch.sum(probs * targets_one_hot, dim=dims)
+        cardinality = torch.sum(probs + targets_one_hot, dim=dims)
+
+        dice_score = (2.0 * intersection + self.smooth) / (cardinality + self.smooth)
+        return 1.0 - dice_score.mean()
+
+
+class CombinedLoss(nn.Module):
+    """
+    Combined CrossEntropy and Dice Loss.
+    """
+
+    def __init__(
+        self,
+        ce_weight: float = 1.0,
+        dice_weight: float = 0.0,
+        ignore_index: int = 255,
+        class_weights: torch.Tensor | None = None,
+    ):
+        super().__init__()
+        self.ce_weight = ce_weight
+        self.dice_weight = dice_weight
+        self.ce_loss = nn.CrossEntropyLoss(weight=class_weights, ignore_index=ignore_index)
+        self.dice_loss = DiceLoss(ignore_index=ignore_index)
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        loss = torch.tensor(0.0, device=logits.device)
+        if self.ce_weight > 0:
+            loss += self.ce_weight * self.ce_loss(logits, targets)
+        if self.dice_weight > 0:
+            loss += self.dice_weight * self.dice_loss(logits, targets)
+        return loss
 
 
 class LandCoverSegmentationModule(pl.LightningModule):
@@ -15,11 +77,16 @@ class LandCoverSegmentationModule(pl.LightningModule):
         self,
         model: nn.Module,
         num_classes: int = 11,
-        ignore_index: int = 0,
+        ignore_index: int = 255,
         lr: float = 1e-3,
         weight_decay: float = 1e-4,
-        scheduler_step_size: int = 10,
+        loss_type: str = "ce",
+        dice_weight: float = 0.2,
+        class_weights: list[float] | None = None,
+        scheduler_type: str = "cosine",
+        scheduler_step_size: int = 20,
         scheduler_gamma: float = 0.1,
+        T_max: int = 50,
     ):
         super().__init__()
         self.save_hyperparameters(ignore=["model"])
@@ -28,11 +95,37 @@ class LandCoverSegmentationModule(pl.LightningModule):
         self.ignore_index = ignore_index
         self.lr = lr
         self.weight_decay = weight_decay
+        self.loss_type = loss_type
+        self.dice_weight = dice_weight
+        self.class_weights = class_weights
+        self.scheduler_type = scheduler_type
         self.scheduler_step_size = scheduler_step_size
         self.scheduler_gamma = scheduler_gamma
+        self.T_max = T_max
+
+        # Load weights into tensor if provided
+        weights_t = None
+        if class_weights is not None:
+            weights_t = torch.tensor(class_weights, dtype=torch.float32)
 
         # Loss function
-        self.criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
+        if loss_type == "ce":
+            self.criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
+        elif loss_type == "weighted_ce":
+            self.criterion = nn.CrossEntropyLoss(weight=weights_t, ignore_index=ignore_index)
+        elif loss_type == "ce_dice":
+            self.criterion = CombinedLoss(
+                ce_weight=1.0, dice_weight=dice_weight, ignore_index=ignore_index
+            )
+        elif loss_type == "weighted_ce_dice":
+            self.criterion = CombinedLoss(
+                ce_weight=1.0,
+                dice_weight=dice_weight,
+                ignore_index=ignore_index,
+                class_weights=weights_t,
+            )
+        else:
+            raise ValueError(f"Unknown loss type: {loss_type}")
 
         # Metrics
         metrics = MetricCollection(
@@ -172,9 +265,17 @@ class LandCoverSegmentationModule(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=self.scheduler_step_size, gamma=self.scheduler_gamma
-        )
+
+        if self.scheduler_type == "cosine":
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.T_max)
+        elif self.scheduler_type == "step":
+            scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer, step_size=self.scheduler_step_size, gamma=self.scheduler_gamma
+            )
+        elif self.scheduler_type == "none":
+            return optimizer
+        else:
+            raise ValueError(f"Unknown scheduler type: {self.scheduler_type}")
 
         return {
             "optimizer": optimizer,
