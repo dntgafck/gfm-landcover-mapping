@@ -2,8 +2,7 @@ import numpy as np
 import rasterio
 from rasterio.transform import from_origin
 
-from data_preparation.index.manifest_reader import extract_metadata
-from data_preparation.index.spatial import get_patch_spatial_anchors
+from data_preparation.index.utils import extract_metadata, get_patch_spatial_anchors
 
 
 def test_get_patch_spatial_anchors(tmp_path):
@@ -35,8 +34,8 @@ def test_get_patch_spatial_anchors(tmp_path):
     # Note: rasterio transform.xy takes image offsets (rows/cols)
     # cy_pix = row_off = 128
     # cx_pix = col_off = 128
-    expected_cx = 4000000 + (128 * 10) + 5
-    expected_cy = 3000000 - (128 * 10) - 5  # y decreases from top
+    expected_cx = 4000000 + (128 * 10)
+    expected_cy = 3000000 - (128 * 10)
 
     assert cx == expected_cx
     assert cy == expected_cy

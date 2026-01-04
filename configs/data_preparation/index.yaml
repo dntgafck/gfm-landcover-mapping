@@ -1,0 +1,13 @@
+imagery_root: data/imagery
+labels_root: data/labels
+output_root: data/patches
+aoi_path: data/aoi.geojson
+dataset_index_path: data/index/dataset_index.csv
+spectral_name: spectral.tif
+scl_name: scl.tif
+mask_name: mask.tif
+labels_name: labels.tif
+patch_size: 256
+stride: 256
+cloud_scl_codes: [9, 10, 11]
+ignore_label_values: [0]

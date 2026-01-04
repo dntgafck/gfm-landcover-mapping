@@ -1,0 +1,7 @@
+index_path: "data/index/dataset_index_with_split.csv"
+norm_stats_path: "data/stats/norm_stats.json"
+batch_size: 32
+num_workers: 4
+cloud_frac_max: 0.20
+test_apply_cloud_filter: true
+augment: true

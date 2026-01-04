@@ -1,0 +1,2 @@
+output_dir: "data/labels"
+cache_dir: "data/worldcover/cache"

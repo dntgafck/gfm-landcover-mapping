@@ -1,0 +1,6 @@
+max_epochs: 50
+accelerator: "auto"
+devices: 1
+precision: "32-true"
+log_every_n_steps: 10
+deterministic: false

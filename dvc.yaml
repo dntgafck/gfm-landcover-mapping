@@ -3,11 +3,11 @@ stages:
     cmd: python -m data_preparation.pipeline.01_aoi
     deps:
       - data_preparation/pipeline/01_aoi.py
-      - conf/params.yaml
+      - configs/config.yaml
+      - configs/data_preparation/aoi.yaml
       - data/natural-earth/ne_10m_admin_0_countries.geojson
     params:
-      - conf/params.yaml:
-        - aoi
+      - configs/data_preparation/aoi.yaml:
     outs:
       - data/aoi.geojson:
           cache: true
@@ -19,10 +19,10 @@ stages:
       - data_preparation/pipeline/02_grid.py
       - data_preparation/load_data/processors.py
       - data/aoi.geojson
-      - conf/params.yaml
+      - configs/config.yaml
+      - configs/data_preparation/preprocessing.yaml
     params:
-      - conf/params.yaml:
-        - preprocessing
+      - configs/data_preparation/preprocessing.yaml:
     outs:
       - data/grid.gpkg
 
@@ -32,10 +32,10 @@ stages:
       - data_preparation/pipeline/03_select_tiles.py
       - data_preparation/load_data/processors.py
       - data/grid.gpkg
-      - conf/params.yaml
+      - configs/config.yaml
+      - configs/data_preparation/sampling.yaml
     params:
-      - conf/params.yaml:
-        - sampling
+      - configs/data_preparation/sampling.yaml:
     outs:
       - data/grid_selected.gpkg:
           cache: true
@@ -47,11 +47,12 @@ stages:
       - data_preparation/pipeline/04_download.py
       - data_preparation/load_data/loader.py
       - data/grid_selected.gpkg
-      - conf/params.yaml
+      - configs/config.yaml
+      - configs/data_preparation/download.yaml
+      - configs/data_preparation/preprocessing.yaml
     params:
-      - conf/params.yaml:
-        - download
-        - preprocessing
+      - configs/data_preparation/download.yaml:
+      - configs/data_preparation/preprocessing.yaml:
     outs:
       - data/imagery:
           persist: true
@@ -62,11 +63,12 @@ stages:
       - data_preparation/pipeline/05_label.py
       - data/imagery
       - data/worldcover/v200/2021/esa_worldcover_grid.geojson
-      - conf/params.yaml
+      - configs/config.yaml
+      - configs/data_preparation/labels.yaml
+      - configs/data_preparation/download.yaml
     params:
-      - conf/params.yaml:
-        - labels
-        - download
+      - configs/data_preparation/labels.yaml:
+      - configs/data_preparation/download.yaml:
     outs:
       - data/labels:
           persist: true
@@ -76,32 +78,48 @@ stages:
     deps:
       - data_preparation/pipeline/06_patchify.py
       - data_preparation/patchify/io.py
-      - data_preparation/patchify/stats.py
       - utils/logging.py
       - data/imagery
       - data/labels
-      - data/aoi.geojson
-      - conf/params.yaml
+      - configs/config.yaml
+      - configs/data_preparation/patchify.yaml
     params:
-      - conf/params.yaml:
-        - patchify
+      - configs/data_preparation/patchify.yaml:
     outs:
       - data/patches:
           persist: true
-      - data/index/dataset_index.csv:
-          persist: true
+
+  build_index:
+    cmd: python -m data_preparation.pipeline.07_build_index ++index.num_workers=8
+    deps:
+      - data_preparation/pipeline/07_build_index.py
+      - data_preparation/patchify/io.py
+      - data_preparation/patchify/stats.py
+      - data_preparation/index/utils.py
+      - utils/logging.py
+      - data/imagery
+      - data/labels
+      - data/patches
+      - data/aoi.geojson
+      - configs/config.yaml
+      - configs/data_preparation/index.yaml
+    params:
+      - configs/data_preparation/index.yaml:
+    outs:
+      - data/index/dataset_index.csv
+
 
   assign_splits:
-    cmd: python -m data_preparation.pipeline.07_assign_splits
+    cmd: python -m data_preparation.pipeline.08_assign_splits
     deps:
-      - data_preparation/pipeline/07_assign_splits.py
+      - data_preparation/pipeline/08_assign_splits.py
       - data_preparation/index/hash_split.py
       - data/index/dataset_index.csv
       - data/aoi.geojson
-      - conf/params.yaml
+      - configs/config.yaml
+      - configs/data_preparation/split.yaml
     params:
-      - conf/params.yaml:
-        - split
+      - configs/data_preparation/split.yaml:
     outs:
       - data/index/dataset_index_with_split.csv
       - data/index/train_index.csv
@@ -110,14 +128,14 @@ stages:
       - data/index/ood_index.csv
 
   compute_norm_stats:
-    cmd: python -m data_preparation.pipeline.08_compute_norm_stats
+    cmd: python -m data_preparation.pipeline.09_compute_norm_stats
     deps:
       - data/index/dataset_index_with_split.csv
-      - data_preparation/pipeline/08_compute_norm_stats.py
-      - conf/params.yaml
+      - data_preparation/pipeline/09_compute_norm_stats.py
+      - configs/config.yaml
+      - configs/data_preparation/norm_stats.yaml
     params:
-      - conf/params.yaml:
-        - norm_stats
+      - configs/data_preparation/norm_stats.yaml:
     outs:
       - data/stats/norm_stats.json:
           cache: true

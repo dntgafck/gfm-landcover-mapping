@@ -4,7 +4,6 @@ from data_preparation.patchify.stats import (
     compute_cloud_frac,
     compute_label_stats,
     compute_valid_frac,
-    is_usable,
 )
 
 
@@ -35,9 +34,3 @@ def test_compute_label_stats_with_ignore():
     # Counts: 10 (2), 20 (1)
     assert stats["dominant_class"] == 10
     assert stats["dominant_frac"] == 0.5
-
-
-def test_is_usable():
-    assert is_usable(0.95, 0.05) is True
-    assert is_usable(0.85, 0.05) is False
-    assert is_usable(0.95, 0.15) is False

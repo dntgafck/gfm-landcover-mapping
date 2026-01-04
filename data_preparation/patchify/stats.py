@@ -34,19 +34,12 @@ def compute_label_stats(
         return {"unique_classes": 0, "dominant_class": None, "dominant_frac": 0.0}
 
     unique, counts = np.unique(valid_labels, return_counts=True)
+    class_counts = {int(k): int(v) for k, v in zip(unique, counts, strict=False)}
     idx = np.argmax(counts)
 
     return {
         "unique_classes": len(unique),
         "dominant_class": int(unique[idx]),
         "dominant_frac": float(counts[idx] / labels.size),
+        "class_counts": class_counts,
     }
-
-
-def is_usable(
-    valid_frac: float, cloud_frac: float, min_valid_frac: float = 0.90, max_cloud_frac: float = 0.10
-) -> bool:
-    """
-    Determines if a patch is usable based on thresholds.
-    """
-    return valid_frac >= min_valid_frac and cloud_frac <= max_cloud_frac

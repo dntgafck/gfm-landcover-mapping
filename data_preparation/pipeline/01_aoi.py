@@ -11,7 +11,7 @@ from utils.logging import get_logger, setup_logging
 logger = get_logger(__name__)
 
 
-@hydra.main(config_path="../../conf", config_name="params", version_base="1.2")
+@hydra.main(config_path="../../configs", config_name="config", version_base="1.3")
 def main(cfg: DictConfig):
     # Setup logging via utility or hydra's job logging
     setup_logging()

@@ -1,0 +1,11 @@
+input_index: "data/index/dataset_index_with_split.csv"
+output_path: "data/stats/norm_stats.json"
+split_name: "train"
+cloud_fraction_max: 0.20
+bands: ["B02", "B03", "B04", "B08"]
+sampling:
+  n_patches: 2000
+  strategy: "stratified"
+  stratify_by: "country"
+  min_per_strata: 50
+  seed: 42

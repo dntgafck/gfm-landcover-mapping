@@ -36,7 +36,7 @@ def assign_splits_to_rank(ranks: np.ndarray, fractions_dict: dict) -> list:
     return results
 
 
-@hydra.main(config_path="../../conf", config_name="params", version_base="1.2")
+@hydra.main(config_path="../../configs", config_name="config", version_base="1.3")
 def main(cfg: DictConfig):
     setup_logging()
 

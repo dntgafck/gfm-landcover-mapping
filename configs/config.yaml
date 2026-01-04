@@ -1,0 +1,21 @@
+defaults:
+  - data_preparation/aoi@aoi
+  - data_preparation/preprocessing@preprocessing
+  - data_preparation/sampling@sampling
+  - data_preparation/download@download
+  - data_preparation/labels@labels
+  - data_preparation/patchify@patchify
+  - data_preparation/index@index
+  - data_preparation/split@split
+  - data_preparation/norm_stats@norm_stats
+  - model: unet_baseline
+  - training/data@data
+  - training/module@module
+  - training/trainer@trainer
+  - training/callbacks@callbacks
+  - _self_
+
+seed: 42
+debug: false
+export_dir: "exports"
+onnx_filename: "model.onnx"

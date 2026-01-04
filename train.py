@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 torch.set_float32_matmul_precision("high")
 
 
-@hydra.main(config_path="conf", config_name="train", version_base="1.3")
+@hydra.main(config_path="configs", config_name="config", version_base="1.3")
 def train(cfg: DictConfig):
     # 1. Seed
     pl.seed_everything(cfg.seed, workers=True)

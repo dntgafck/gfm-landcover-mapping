@@ -1,0 +1,4 @@
+name: ["France", "Germany", "Belgium", "Netherlands", "Italy", "Spain", "Greece"]
+subregion: null
+iso_a3: null
+source: "data/natural-earth/ne_10m_admin_0_countries.geojson"

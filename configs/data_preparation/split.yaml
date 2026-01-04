@@ -1,0 +1,15 @@
+input_csv: data/index/dataset_index.csv
+output_csv: data/index/dataset_index_with_split.csv
+output_dir: data/index
+seed: 42
+config:
+  - name: iid
+    countries: ["France", "Germany", "Belgium", "Netherlands"]
+    splits:
+      train: 0.7
+      val: 0.15
+      test: 0.15
+  - name: ood
+    countries: ["Italy", "Spain", "Greece"]
+    splits:
+      ood: 1.0

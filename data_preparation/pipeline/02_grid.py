@@ -9,7 +9,7 @@ from data_preparation.load_data.processors import GridPreprocessor
 from utils.logging import setup_logging
 
 
-@hydra.main(config_path="../../conf", config_name="params", version_base="1.2")
+@hydra.main(config_path="../../configs", config_name="config", version_base="1.3")
 def main(cfg: DictConfig):
     setup_logging()
 

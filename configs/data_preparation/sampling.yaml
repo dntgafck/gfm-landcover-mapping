@@ -1,0 +1,6 @@
+enabled: true
+total_tiles: 2500
+per_country_min: 50
+weight_power: 1.0
+seed: 42
+country_key: "iso_a3"

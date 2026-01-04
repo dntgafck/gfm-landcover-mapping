@@ -77,7 +77,7 @@ def welford_update_batch(
         existing_stats[c] = (updated_count, updated_mean, updated_m2)
 
 
-@hydra.main(config_path="../../conf", config_name="params", version_base="1.2")
+@hydra.main(config_path="../../configs", config_name="config", version_base="1.3")
 def main(cfg: DictConfig):
     setup_logging()
 
@@ -92,7 +92,6 @@ def main(cfg: DictConfig):
     sampling_cfg = stage_cfg.get("sampling", {})
     n_patches = sampling_cfg.get("n_patches", 2000)
     seed = sampling_cfg.get("seed", 42)
-    # n_pixels_per_patch = stage_cfg.get("n_pixels_per_patch", 0)  # 0 means full patch
 
     repo_root = Path.cwd()
 

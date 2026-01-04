@@ -6,9 +6,7 @@ import dvc.api
 import hydra
 import numpy as np
 import pandas as pd
-import rasterio
 from omegaconf import DictConfig
-from tqdm import tqdm
 
 from utils.logging import get_logger, setup_logging
 
@@ -104,57 +102,40 @@ def compute_class_frequencies(
 ) -> np.ndarray:
     """
     Computes total pixel counts per class across all patches in the dataframe.
+    Uses pre-computed stats from the index if available.
     """
     counts = np.zeros(num_classes, dtype=np.int64)
 
-    for _, row in tqdm(df.iterrows(), total=len(df), desc="Computing class frequencies"):
-        label_path = repo_root / row["label_path"]
+    # Label mapping (ESA WorldCover -> Contiguous [0, 10])
+    label_map = {10: 0, 20: 1, 30: 2, 40: 3, 50: 4, 60: 5, 70: 6, 80: 7, 90: 8, 95: 9, 100: 10}
 
-        if not label_path.exists():
-            logger.warning(f"Label file missing: {label_path}, skipping.")
-            continue
+    if "class_counts" not in df.columns:
+        raise ValueError(
+            "Column 'class_counts' missing in index. "
+            "Please re-run the 'build_index' stage (07_build_index.py)."
+        )
 
+    logger.info("Using pre-computed class_counts from index.")
+    for _, row in df.iterrows():
         try:
-            with rasterio.open(label_path) as src:
-                mask = src.read(1)
-
-                # Remap to [0, 10] and ignore 255
-                # Note: The logic here should match LandCoverPatchDataset.__getitem__
-                # However, the dataset does remapping on the fly.
-                # If the saved labels are still ESA WorldCover [10, 20...], we remap.
-                # BUT if we want to be consistent, we should probably use the same mapping.
-
-                # ESA WorldCover mapping:
-                # 10->0, 20->1, 30->2, 40->3, 50->4, 60->5, 70->6, 80->7, 90->8, 95->9, 100->10
-                remapped = np.full_like(mask, ignore_index, dtype=np.int64)
-                remapped[mask == 10] = 0
-                remapped[mask == 20] = 1
-                remapped[mask == 30] = 2
-                remapped[mask == 40] = 3
-                remapped[mask == 50] = 4
-                remapped[mask == 60] = 5
-                remapped[mask == 70] = 6
-                remapped[mask == 80] = 7
-                remapped[mask == 90] = 8
-                remapped[mask == 95] = 9
-                remapped[mask == 100] = 10
-
-                unique, counts_unique = np.unique(remapped, return_counts=True)
-                for val, count in zip(unique, counts_unique, strict=False):
-                    if val != ignore_index and 0 <= val < num_classes:
-                        counts[val] += count
-
+            # class_counts is stored as a JSON string
+            patch_counts = json.loads(row["class_counts"])
+            for raw_val, count in patch_counts.items():
+                raw_val_int = int(raw_val)
+                if raw_val_int in label_map:
+                    mapped_val = label_map[raw_val_int]
+                    if 0 <= mapped_val < num_classes:
+                        counts[mapped_val] += count
         except Exception as e:
-            logger.error(f"Error reading {label_path}: {e}")
+            logger.warning(f"Failed to parse class_counts for patch {row.get('patch_id')}: {e}")
             continue
-
     return counts
 
 
 if __name__ == "__main__":
     setup_logging()
 
-    @hydra.main(config_path="../../conf", config_name="params", version_base="1.2")
+    @hydra.main(config_path="../../configs", config_name="config", version_base="1.3")
     def run_as_script(cfg: DictConfig):
         # Configuration for class weights
         stage_cfg = cfg.get("class_weights", {})
