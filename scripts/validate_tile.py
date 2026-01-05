@@ -43,7 +43,9 @@ def check_alignment(ref_meta, target_path, name):
             print(f"[FAIL] {name} Transform mismatch")
             ok = False
         if ds.width != ref_w or ds.height != ref_h:
-            print(f"[FAIL] {name} Shape mismatch: {(ds.height, ds.width)} != {(ref_h, ref_w)}")
+            print(
+                f"[FAIL] {name} Shape mismatch: {(ds.height, ds.width)} != {(ref_h, ref_w)}"
+            )
             ok = False
 
         if ok:
@@ -58,7 +60,9 @@ def check_categorical_values(path: Path, expected=None):
         if expected:
             extra = set(vals) - set(expected)
             if extra:
-                print(f"[WARN] {path.name} has unexpected values: {sorted(list(extra))}")
+                print(
+                    f"[WARN] {path.name} has unexpected values: {sorted(list(extra))}"
+                )
             else:
                 print(f"[OK] {path.name} values are subset of expected.")
         else:

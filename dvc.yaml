@@ -90,7 +90,8 @@ stages:
           persist: true
 
   build_index:
-    cmd: python -m data_preparation.pipeline.07_build_index ++index.num_workers=8
+    cmd:
+      python -m data_preparation.pipeline.07_build_index ++index.num_workers=8
     deps:
       - data_preparation/pipeline/07_build_index.py
       - data_preparation/patchify/io.py
@@ -107,7 +108,6 @@ stages:
       - configs/data_preparation/index.yaml:
     outs:
       - data/index/dataset_index.csv
-
 
   assign_splits:
     cmd: python -m data_preparation.pipeline.08_assign_splits

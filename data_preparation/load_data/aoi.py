@@ -31,7 +31,9 @@ class AOILoader:
         try:
             gdf = gpd.read_file(self.geojson_source)
         except Exception as e:
-            raise RuntimeError(f"Failed to load AOI from {self.geojson_source}: {e}") from e
+            raise RuntimeError(
+                f"Failed to load AOI from {self.geojson_source}: {e}"
+            ) from e
 
         # Ensure CRS
         if self.force_wgs84:
@@ -116,7 +118,11 @@ class AOILoader:
 
         if name:
             if "NAME" in gdf.columns:
-                gdf = gdf[self._filter_by_values(gdf["NAME"], name, substring_match=name_contains)]
+                gdf = gdf[
+                    self._filter_by_values(
+                        gdf["NAME"], name, substring_match=name_contains
+                    )
+                ]
             else:
                 logger.warning("Column NAME not found; skipping name filter.")
 
@@ -171,7 +177,9 @@ class AOILoader:
             gdf_pre = gdf
 
         # Spatial overlay (intersection)
-        split_gdf = gpd.overlay(gdf_pre, countries, how="intersection", keep_geom_type=True)
+        split_gdf = gpd.overlay(
+            gdf_pre, countries, how="intersection", keep_geom_type=True
+        )
 
         return split_gdf
 

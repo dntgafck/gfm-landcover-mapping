@@ -22,8 +22,12 @@ def test_compute_cache_key_determinism(mock_get_config):
     }
     """
 
-    key1 = loader.compute_cache_key(bbox, time_interval, resolution, collection_name, evalscript)
-    key2 = loader.compute_cache_key(bbox, time_interval, resolution, collection_name, evalscript)
+    key1 = loader.compute_cache_key(
+        bbox, time_interval, resolution, collection_name, evalscript
+    )
+    key2 = loader.compute_cache_key(
+        bbox, time_interval, resolution, collection_name, evalscript
+    )
 
     assert key1 == key2
     assert isinstance(key1, str)
@@ -45,7 +49,9 @@ def test_compute_cache_key_sensitivity(mock_get_config):
     )
 
     # Different resolution
-    key_res = loader.compute_cache_key(bbox, time_interval, 20, collection_name, evalscript)
+    key_res = loader.compute_cache_key(
+        bbox, time_interval, 20, collection_name, evalscript
+    )
     assert key_base != key_res
 
     # Different date
@@ -74,16 +80,24 @@ def test_compute_cache_key_quantization(mock_get_config):
     collection_name = "SENTINEL2_L2A"
     evalscript = "script"
 
-    key1 = loader.compute_cache_key(bbox1, time_interval, resolution, collection_name, evalscript)
+    key1 = loader.compute_cache_key(
+        bbox1, time_interval, resolution, collection_name, evalscript
+    )
     # 0.1234567 rounds to 0.123457
     # Use something that rounds to 0.123458 (e.g. 0.1234578)
     bbox2 = BBox(bbox=(0.1234578, 0.1234578, 10.1234578, 10.1234578), crs=CRS(3035))
-    key2 = loader.compute_cache_key(bbox2, time_interval, resolution, collection_name, evalscript)
+    key2 = loader.compute_cache_key(
+        bbox2, time_interval, resolution, collection_name, evalscript
+    )
     assert key1 != key2
 
     # Verify rounding to 6 decimals: 0.1234561 should round to same as 0.1234562
     bbox_a = BBox(bbox=(0.1234561, 0, 1, 1), crs=CRS(3035))
     bbox_b = BBox(bbox=(0.1234562, 0, 1, 1), crs=CRS(3035))
-    key_a = loader.compute_cache_key(bbox_a, time_interval, resolution, collection_name, evalscript)
-    key_b = loader.compute_cache_key(bbox_b, time_interval, resolution, collection_name, evalscript)
+    key_a = loader.compute_cache_key(
+        bbox_a, time_interval, resolution, collection_name, evalscript
+    )
+    key_b = loader.compute_cache_key(
+        bbox_b, time_interval, resolution, collection_name, evalscript
+    )
     assert key_a == key_b

@@ -83,7 +83,9 @@ def main(cfg: DictConfig):
 
     # Configuration
     stage_cfg = cfg.get("norm_stats", {})
-    index_path = Path(stage_cfg.get("input_index", "data/index/dataset_index_with_split.csv"))
+    index_path = Path(
+        stage_cfg.get("input_index", "data/index/dataset_index_with_split.csv")
+    )
     output_path = Path(stage_cfg.get("output_path", "data/stats/norm_stats.json"))
     split_name = stage_cfg.get("split_name", "train")
     cloud_frac_max = stage_cfg.get("cloud_fraction_max", 0.20)
@@ -117,7 +119,9 @@ def main(cfg: DictConfig):
 
     if "cloud_frac" in df.columns:
         df = df[df["cloud_frac"] <= cloud_frac_max]
-        logger.info(f"Filtered for cloud_frac<={cloud_frac_max}: {len(df)} patches remain.")
+        logger.info(
+            f"Filtered for cloud_frac<={cloud_frac_max}: {len(df)} patches remain."
+        )
 
     if len(df) == 0:
         raise ValueError("No patches matched filter criteria.")
@@ -146,7 +150,9 @@ def main(cfg: DictConfig):
 
     else:
         # Random
-        logger.info(f"Sampling {n_patches} patches from {len(df)} candidates (seed={seed}).")
+        logger.info(
+            f"Sampling {n_patches} patches from {len(df)} candidates (seed={seed})."
+        )
         sampler = RandomSampler(seed=seed)
         sampled_df = sampler.sample(df, n_patches)
         sampled_df = sampled_df.sort_values("patch_id")
@@ -158,7 +164,9 @@ def main(cfg: DictConfig):
     patches_processed = 0
     # sampled_patch_ids = sampled_df["patch_id"].tolist()
 
-    for _, row in tqdm(sampled_df.iterrows(), total=len(sampled_df), desc="Computing stats"):
+    for _, row in tqdm(
+        sampled_df.iterrows(), total=len(sampled_df), desc="Computing stats"
+    ):
         rel_path = row["spectral_path"]
         abs_path = repo_root / rel_path
 
@@ -193,7 +201,9 @@ def main(cfg: DictConfig):
 
                 # Validation
                 if data.shape[0] != len(bands):
-                    logger.warning(f" skipping {rel_path}: {data.shape[0]} bands != {len(bands)}")
+                    logger.warning(
+                        f" skipping {rel_path}: {data.shape[0]} bands != {len(bands)}"
+                    )
                     continue
 
                 welford_update_batch(stats_accumulator, data)

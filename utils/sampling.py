@@ -138,7 +138,9 @@ class StratifiedSampler(Sampler):
         stats = []
 
         # Handle GroupBy object directly or iterator
-        if hasattr(groups, "__iter__") and not isinstance(groups, pd.core.groupby.GroupBy):
+        if hasattr(groups, "__iter__") and not isinstance(
+            groups, pd.core.groupby.GroupBy
+        ):
             group_iter = groups
         else:
             group_iter = groups
@@ -216,7 +218,9 @@ class StratifiedSampler(Sampler):
             candidates = stats_df[stats_df["allocated"] > stats_df["floor"]]
 
             if candidates.empty:
-                logger.warning("Could not reduce count to total_budget due to minimum constraints.")
+                logger.warning(
+                    "Could not reduce count to total_budget due to minimum constraints."
+                )
                 break
 
             stats_df["ideal"] = total_budget * stats_df["weight"] / total_weight

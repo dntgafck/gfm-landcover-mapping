@@ -50,7 +50,9 @@ class LandCoverAugmentations:
         return sample
 
 
-def normalize_image(image: torch.Tensor, mean: list[float], std: list[float]) -> torch.Tensor:
+def normalize_image(
+    image: torch.Tensor, mean: list[float], std: list[float]
+) -> torch.Tensor:
     """
     Normalize image tensor channel-wise: (x - mean) / std.
     Args:
@@ -66,7 +68,11 @@ def normalize_image(image: torch.Tensor, mean: list[float], std: list[float]) ->
         )
 
     # Convert lists to tensors for broadcasting [C, 1, 1]
-    mean_tensor = torch.tensor(mean, dtype=image.dtype, device=image.device).view(-1, 1, 1)
-    std_tensor = torch.tensor(std, dtype=image.dtype, device=image.device).view(-1, 1, 1)
+    mean_tensor = torch.tensor(mean, dtype=image.dtype, device=image.device).view(
+        -1, 1, 1
+    )
+    std_tensor = torch.tensor(std, dtype=image.dtype, device=image.device).view(
+        -1, 1, 1
+    )
 
     return (image - mean_tensor) / std_tensor

@@ -102,11 +102,17 @@ def main(cfg: DictConfig):
                     window = Window(col_off, row_off, patch_size, patch_size)
 
                     # Deterministic Patch ID
-                    patch_id = f"{tile_id}_r{row_off}_c{col_off}_p{patch_size}_s{stride}"
+                    patch_id = (
+                        f"{tile_id}_r{row_off}_c{col_off}_p{patch_size}_s{stride}"
+                    )
 
                     # Write paths
-                    spec_out_path = spectral_out_dir / country / tile_id / f"{patch_id}.tif"
-                    label_out_path = labels_out_dir / country / tile_id / f"{patch_id}.tif"
+                    spec_out_path = (
+                        spectral_out_dir / country / tile_id / f"{patch_id}.tif"
+                    )
+                    label_out_path = (
+                        labels_out_dir / country / tile_id / f"{patch_id}.tif"
+                    )
 
                     # Check if patches already exist to skip writing
                     if not force and spec_out_path.exists() and label_out_path.exists():
@@ -117,7 +123,11 @@ def main(cfg: DictConfig):
                     patch_labels = src_labels.read(1, window=window)
 
                     # Assert shapes
-                    assert patch_spectral.shape == (src_spectral.count, patch_size, patch_size)
+                    assert patch_spectral.shape == (
+                        src_spectral.count,
+                        patch_size,
+                        patch_size,
+                    )
                     assert patch_labels.shape == (patch_size, patch_size)
 
                     # Write files
@@ -129,7 +139,9 @@ def main(cfg: DictConfig):
                         {
                             "height": patch_size,
                             "width": patch_size,
-                            "transform": rasterio.windows.transform(window, src_spectral.transform),
+                            "transform": rasterio.windows.transform(
+                                window, src_spectral.transform
+                            ),
                             "compress": compression,
                         }
                     )
@@ -141,7 +153,9 @@ def main(cfg: DictConfig):
                         {
                             "height": patch_size,
                             "width": patch_size,
-                            "transform": rasterio.windows.transform(window, src_labels.transform),
+                            "transform": rasterio.windows.transform(
+                                window, src_labels.transform
+                            ),
                             "compress": compression,
                         }
                     )
@@ -152,11 +166,11 @@ def main(cfg: DictConfig):
             logger.error("Failed to process tile %s: %s", tile_id, str(e))
             skipped_tiles.append(tile_id)
             # Re-raise if it's an alignment error or assertion error
-            if (
-                "mismatch" in str(e).lower()
-                or "assertion" in str(e).lower()
-                or isinstance(e, AssertionError)
-            ):
+            error_msg = str(e).lower()
+            is_mismatch = "mismatch" in error_msg
+            is_assertion = "assertion" in error_msg or isinstance(e, AssertionError)
+
+            if is_mismatch or is_assertion:
                 raise
             continue
 

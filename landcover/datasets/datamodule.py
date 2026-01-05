@@ -29,6 +29,7 @@ class LandCoverDataModule(pl.LightningDataModule):
         cloud_frac_max: float = 0.20,
         test_apply_cloud_filter: bool = True,
         augment: bool = True,
+        overfit_cfg: dict | None = None,
         seed: int = 42,
     ):
         super().__init__()
@@ -39,6 +40,7 @@ class LandCoverDataModule(pl.LightningDataModule):
         self.cloud_frac_max = cloud_frac_max
         self.test_apply_cloud_filter = test_apply_cloud_filter
         self.augment = augment
+        self.overfit_cfg = overfit_cfg or {}
         self.seed = seed
 
         self.train_ds: LandCoverPatchDataset | None = None
@@ -49,7 +51,9 @@ class LandCoverDataModule(pl.LightningDataModule):
     def prepare_data(self):
         """Ensure data is local before training starts."""
         # Check if basic data markers exist
-        basic_data_exists = os.path.exists(self.index_path) and os.path.exists(self.norm_stats_path)
+        basic_data_exists = os.path.exists(self.index_path) and os.path.exists(
+            self.norm_stats_path
+        )
         patches_exist = os.path.exists("data/patches")
 
         if basic_data_exists and patches_exist:
@@ -80,7 +84,16 @@ class LandCoverDataModule(pl.LightningDataModule):
     def setup(self, stage: str | None = None):
         if stage == "fit" or stage is None:
             # Train: Filtered, Augmented
-            augmentations = LandCoverAugmentations() if self.augment else None
+            is_overfit = self.overfit_cfg.get("overfit_100", False)
+            if is_overfit:
+                logger.info("Overfit mode: augmentations disabled")
+                augmentations = None
+                subset_n = self.overfit_cfg.get("overfit_n", 100)
+                self.num_workers = self.overfit_cfg.get("overfit_num_workers", 0)
+                self.batch_size = self.overfit_cfg.get("overfit_batch_size", 16)
+            else:
+                augmentations = LandCoverAugmentations() if self.augment else None
+                subset_n = None
 
             self.train_ds = LandCoverPatchDataset(
                 index_path=self.index_path,
@@ -89,19 +102,26 @@ class LandCoverDataModule(pl.LightningDataModule):
                 cloud_frac_max=self.cloud_frac_max,
                 apply_cloud_filter=True,  # Always filter train
                 augmentations=augmentations,
+                debug_limit=subset_n,
             )
 
             # Val: Filtered, No Augmentations
-            self.val_ds = LandCoverPatchDataset(
-                index_path=self.index_path,
-                split="val",
-                norm_stats_path=self.norm_stats_path,
-                cloud_frac_max=self.cloud_frac_max,
-                apply_cloud_filter=True,  # Always filter val
-                augmentations=None,
-            )
+            if self.overfit_cfg.get("overfit_100"):
+                # Disable validation in overfit mode
+                self.val_ds = None
+            else:
+                self.val_ds = LandCoverPatchDataset(
+                    index_path=self.index_path,
+                    split="val",
+                    norm_stats_path=self.norm_stats_path,
+                    cloud_frac_max=self.cloud_frac_max,
+                    apply_cloud_filter=True,  # Always filter val
+                    augmentations=None,
+                )
 
-        if stage == "test" or stage is None:
+        if (stage == "test" or stage is None) and not self.overfit_cfg.get(
+            "overfit_100"
+        ):
             # Test (IID): Configurable Filtering
             self.test_ds = LandCoverPatchDataset(
                 index_path=self.index_path,
@@ -139,9 +159,10 @@ class LandCoverDataModule(pl.LightningDataModule):
         return kwargs
 
     def train_dataloader(self):
+        is_overfit = self.overfit_cfg.get("overfit_100", False)
         return DataLoader(
             self.train_ds,
-            drop_last=True,
+            drop_last=not is_overfit,
             **self._get_loader_kwargs(shuffle=True),
         )
 

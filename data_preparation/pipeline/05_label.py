@@ -5,7 +5,10 @@ import hydra
 from omegaconf import DictConfig
 from tqdm import tqdm
 
-from data_preparation.load_data.worldcover_labels import WorldCoverLabeler, WorldCoverS3Config
+from data_preparation.load_data.worldcover_labels import (
+    WorldCoverLabeler,
+    WorldCoverS3Config,
+)
 from utils.logging import setup_logging
 
 
@@ -17,16 +20,18 @@ def main(cfg: DictConfig):
     download_params = cfg["download"]
 
     # Check for WorldCover grid file
-    wc_grid_path = (
-        "data/worldcover/v200/2021/esa_worldcover_grid.geojson"  # Hardcoded backup or need param
-    )
+    wc_grid_path = "data/worldcover/v200/2021/esa_worldcover_grid.geojson"  # Hardcoded backup or need param
 
     # Initialize Labeler
-    s3_cfg = WorldCoverS3Config(cache_dir=label_params.get("cache_dir", "data/worldcover/cache"))
+    s3_cfg = WorldCoverS3Config(
+        cache_dir=label_params.get("cache_dir", "data/worldcover/cache")
+    )
 
     # Initialize labeler with lazy grid loading if possible, but __init__ reads it.
     if not os.path.exists(wc_grid_path):
-        print(f"WARNING: WorldCover grid not found at {wc_grid_path}. Labeling might fail.")
+        print(
+            f"WARNING: WorldCover grid not found at {wc_grid_path}. Labeling might fail."
+        )
 
     try:
         labeler = WorldCoverLabeler(wc_grid_path, s3_cfg)

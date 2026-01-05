@@ -69,7 +69,9 @@ class WorldCoverLabeler:
         for c in gdf.columns:
             if "tile" in c.lower():
                 return c
-        raise ValueError(f"Could not detect tile id column. Available columns: {list(gdf.columns)}")
+        raise ValueError(
+            f"Could not detect tile id column. Available columns: {list(gdf.columns)}"
+        )
 
     def _tile_filename(self, tile_id: str) -> str:
         # Example: ESA_WorldCover_10m_2021_v200_S48E165_Map.tif
@@ -231,6 +233,8 @@ class WorldCoverLabeler:
                 labels.transform == ref_transform
             ), f"Transform mismatch: {labels.transform} != {ref_transform}"
             assert labels.width == ref_w, f"Width mismatch: {labels.width} != {ref_w}"
-            assert labels.height == ref_h, f"Height mismatch: {labels.height} != {ref_h}"
+            assert (
+                labels.height == ref_h
+            ), f"Height mismatch: {labels.height} != {ref_h}"
 
         return out_path_obj

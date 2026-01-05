@@ -4,3 +4,7 @@ devices: 1
 precision: "32-true"
 log_every_n_steps: 10
 deterministic: false
+
+export:
+  artifacts_dir: "${hydra:run.dir}/artifacts"
+  onnx_filename: "model.onnx"

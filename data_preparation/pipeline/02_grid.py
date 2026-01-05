@@ -44,7 +44,9 @@ def main(cfg: DictConfig):
         print("No grids generated.")
         return
 
-    final_grid = gpd.GeoDataFrame(pd.concat(all_grids, ignore_index=True), crs=all_grids[0].crs)
+    final_grid = gpd.GeoDataFrame(
+        pd.concat(all_grids, ignore_index=True), crs=all_grids[0].crs
+    )
 
     out_path = Path("data/grid.gpkg")
     final_grid.to_file(out_path, layer="grid", driver="GPKG")

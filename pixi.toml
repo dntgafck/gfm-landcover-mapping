@@ -47,12 +47,10 @@ pytorch-lightning = ">=2.6.0, <3"
 torchmetrics = ">=1.8.2, <2"
 onnx = "*"
 onnxscript = ">=0.1.0"
+mlflow = "*"
 
 [feature.dev.pypi-dependencies]
 pre-commit = "*"
-ruff = "*"
-mypy = "*"
-types-requests = "*"
 pytest = "*"
 dvc = { version = ">=3.65.0, <4", extras = ["s3"] }
 jupyterlab = "*"

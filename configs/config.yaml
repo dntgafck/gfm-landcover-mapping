@@ -13,9 +13,9 @@ defaults:
   - training/module@module
   - training/trainer@trainer
   - training/callbacks@callbacks
+  - training/logging@logging
+  - training/debug@debug
   - _self_
 
 seed: 42
-debug: false
 export_dir: "exports"
-onnx_filename: "model.onnx"

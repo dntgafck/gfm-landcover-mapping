@@ -71,6 +71,8 @@ class LandCoverPatchDataset(Dataset):
             logger.info(f"Cloud Filter: DISABLED for split '{split}'.")
 
         if debug_limit:
+            # Stable ordering before subsetting
+            self.df = self.df.sort_values("patch_id")
             self.df = self.df.iloc[:debug_limit]
 
         # Load Norm Stats via DVC
@@ -120,7 +122,9 @@ class LandCoverPatchDataset(Dataset):
                 image = src.read()
 
                 if image.shape[0] != 4:
-                    raise ValueError(f"Expected 4 bands, got {image.shape[0]} at {spectral_path}")
+                    raise ValueError(
+                        f"Expected 4 bands, got {image.shape[0]} at {spectral_path}"
+                    )
 
                 image = image.astype(np.float32)
 
@@ -131,12 +135,16 @@ class LandCoverPatchDataset(Dataset):
                 mask = mask.astype(np.int64)
 
         except Exception as e:
-            logger.error(f"Error loading sample {idx} (patch_id: {row.get('patch_id')}): {e}")
+            logger.error(
+                f"Error loading sample {idx} (patch_id: {row.get('patch_id')}): {e}"
+            )
             raise e
 
         # Assert shapes
         if image.shape[-2:] != mask.shape[-2:]:
-            raise ValueError(f"Shape mismatch: Image {image.shape} vs Mask {mask.shape}")
+            raise ValueError(
+                f"Shape mismatch: Image {image.shape} vs Mask {mask.shape}"
+            )
 
         # Convert to Tensor
         image_t = torch.from_numpy(image)  # (C, H, W)

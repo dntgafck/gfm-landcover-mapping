@@ -65,7 +65,9 @@ def process_tile(
             for spec_path in patch_spectral_files:
                 patch_id = spec_path.stem
                 # Expected label path
-                label_path = patches_root / "labels" / country / tile_id / f"{patch_id}.tif"
+                label_path = (
+                    patches_root / "labels" / country / tile_id / f"{patch_id}.tif"
+                )
 
                 if not label_path.exists():
                     continue
@@ -150,7 +152,9 @@ def main(cfg: DictConfig):
     labels_root = Path(index_cfg.get("labels_root", "data/labels"))
     patches_root = Path(index_cfg.get("output_root", "data/patches"))
     aoi_path = Path(index_cfg.get("aoi_path", "data/aoi.geojson"))
-    index_out_path = Path(index_cfg.get("dataset_index_path", "data/index/dataset_index.csv"))
+    index_out_path = Path(
+        index_cfg.get("dataset_index_path", "data/index/dataset_index.csv")
+    )
     num_workers = index_cfg.get("num_workers", 1)
 
     # Load AOI for correct aoi_id lookup
@@ -205,7 +209,9 @@ def main(cfg: DictConfig):
             if not tile_info:
                 logger.warning("Tile info missing for %s, skipping.", tile_id)
                 continue
-            tasks.append((tile_info, patches, index_cfg_dict, aoi_map, patches_root, repo_root))
+            tasks.append(
+                (tile_info, patches, index_cfg_dict, aoi_map, patches_root, repo_root)
+            )
 
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             futures = [executor.submit(process_tile, *task) for task in tasks]
@@ -218,7 +224,9 @@ def main(cfg: DictConfig):
             if not tile_info:
                 logger.warning("Tile info missing for %s, skipping.", tile_id)
                 continue
-            res = process_tile(tile_info, patches, index_cfg_dict, aoi_map, patches_root, repo_root)
+            res = process_tile(
+                tile_info, patches, index_cfg_dict, aoi_map, patches_root, repo_root
+            )
             all_patch_records.extend(res)
 
     if not all_patch_records:
@@ -230,7 +238,9 @@ def main(cfg: DictConfig):
 
     index_out_path.parent.mkdir(parents=True, exist_ok=True)
     final_df.to_csv(index_out_path, index=False)
-    logger.info("Created index with %d patch records in %s", len(final_df), index_out_path)
+    logger.info(
+        "Created index with %d patch records in %s", len(final_df), index_out_path
+    )
 
 
 if __name__ == "__main__":

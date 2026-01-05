@@ -6,9 +6,7 @@ from sentinelhub import SHConfig
 CDSE_BASE_URL = "https://sh.dataspace.copernicus.eu"
 
 # CDSE identity (token) endpoint (official CDSE realm)
-CDSE_TOKEN_URL = (
-    "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
-)
+CDSE_TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 
 
 def get_config():

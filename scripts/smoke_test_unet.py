@@ -37,7 +37,9 @@ def test_unet_shapes():
             size,
             size,
         ), f"Expected shape {(batch_size, num_classes, size, size)}, got {y_hat.shape}"
-        assert y_hat.dtype == torch.float32, f"Expected dtype torch.float32, got {y_hat.dtype}"
+        assert (
+            y_hat.dtype == torch.float32
+        ), f"Expected dtype torch.float32, got {y_hat.dtype}"
 
     print("Shape tests passed!")
 

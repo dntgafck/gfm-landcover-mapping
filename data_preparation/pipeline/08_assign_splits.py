@@ -44,7 +44,9 @@ def main(cfg: DictConfig):
     split_cfg = cfg.get("split", {})
 
     input_csv = Path(split_cfg.get("input_csv", "data/index/dataset_index.csv"))
-    output_csv = Path(split_cfg.get("output_csv", "data/index/dataset_index_with_split.csv"))
+    output_csv = Path(
+        split_cfg.get("output_csv", "data/index/dataset_index_with_split.csv")
+    )
     output_dir = Path(split_cfg.get("output_dir", "data/index"))
     aoi_path = Path("data/aoi.geojson")
     seed = split_cfg.get("seed", 42)
@@ -116,11 +118,17 @@ def main(cfg: DictConfig):
             ranks[idx] = (i + 0.5) / len(unique_groups)
 
         group_to_split = dict(
-            zip(unique_groups, assign_splits_to_rank(ranks, config_group["splits"]), strict=False)
+            zip(
+                unique_groups,
+                assign_splits_to_rank(ranks, config_group["splits"]),
+                strict=False,
+            )
         )
 
         # Map back to main dataframe
-        df.loc[df["country"] == country, "split"] = country_df["group_id"].map(group_to_split)
+        df.loc[df["country"] == country, "split"] = country_df["group_id"].map(
+            group_to_split
+        )
 
     # 4. Remove excluded
     if (df["split"] == "excluded").any():

@@ -15,8 +15,12 @@ class ConvBlock(nn.Module):
         groups: int = 8,
     ):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=False)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(
+            in_channels, out_channels, kernel_size=3, padding=1, bias=False
+        )
+        self.conv2 = nn.Conv2d(
+            out_channels, out_channels, kernel_size=3, padding=1, bias=False
+        )
 
         if norm_type == "batch":
             self.norm1 = nn.BatchNorm2d(out_channels)
@@ -88,14 +92,18 @@ class UNetBaseline(nn.Module):
                     nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)
                 )
             elif upsample_type == "transpose":
-                self.upsamples.append(nn.ConvTranspose2d(chs, chs // 2, kernel_size=2, stride=2))
+                self.upsamples.append(
+                    nn.ConvTranspose2d(chs, chs // 2, kernel_size=2, stride=2)
+                )
             else:
                 raise ValueError(f"Unsupported upsample_type: {upsample_type}")
 
             # If bilinear, upsample doesn't change channels, so we cat chs + chs//2
             # If transpose, it changes chs to chs//2, so we cat chs//2 + chs//2
             decoder_in_chs = chs + (chs // 2) if upsample_type == "bilinear" else chs
-            self.decoders.append(ConvBlock(decoder_in_chs, chs // 2, norm_type=norm_type))
+            self.decoders.append(
+                ConvBlock(decoder_in_chs, chs // 2, norm_type=norm_type)
+            )
             chs //= 2
 
         # Final head
@@ -103,7 +111,10 @@ class UNetBaseline(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Input validation (ONNX friendly)
-        torch._assert(x.shape[1] == self.in_channels, f"Expected {self.in_channels} input channels")
+        torch._assert(
+            x.shape[1] == self.in_channels,
+            f"Expected {self.in_channels} input channels",
+        )
 
         # Encoder
         enc_features = []

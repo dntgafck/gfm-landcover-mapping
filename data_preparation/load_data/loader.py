@@ -236,7 +236,9 @@ class SentinelDataLoader:
                     if os.path.isdir(os.path.join(temp_download_dir, f))
                 ]
                 if not subfolders:
-                    raise FileNotFoundError("Sentinel Hub did not create an output directory.")
+                    raise FileNotFoundError(
+                        "Sentinel Hub did not create an output directory."
+                    )
 
                 sh_result_dir = os.path.join(temp_download_dir, subfolders[0])
 
@@ -274,7 +276,9 @@ class SentinelDataLoader:
                         "mask": ["dataMask"],
                     },
                     "mosaic": "mostRecent",
-                    "evalscript_sha256": hashlib.sha256(evalscript.encode("utf-8")).hexdigest(),
+                    "evalscript_sha256": hashlib.sha256(
+                        evalscript.encode("utf-8")
+                    ).hexdigest(),
                     "cache_key": cache_key,
                     "created_utc": datetime.utcnow().isoformat(),
                 }

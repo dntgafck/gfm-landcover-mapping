@@ -45,7 +45,9 @@ def compute_class_weights(
 
     if "cloud_frac" in df.columns:
         df = df[df["cloud_frac"] <= cloud_frac_max]
-        logger.info(f"Filtered for cloud_frac<={cloud_frac_max}: {len(df)} patches remain.")
+        logger.info(
+            f"Filtered for cloud_frac<={cloud_frac_max}: {len(df)} patches remain."
+        )
 
     if len(df) == 0:
         raise ValueError("No patches matched filter criteria.")
@@ -107,7 +109,19 @@ def compute_class_frequencies(
     counts = np.zeros(num_classes, dtype=np.int64)
 
     # Label mapping (ESA WorldCover -> Contiguous [0, 10])
-    label_map = {10: 0, 20: 1, 30: 2, 40: 3, 50: 4, 60: 5, 70: 6, 80: 7, 90: 8, 95: 9, 100: 10}
+    label_map = {
+        10: 0,
+        20: 1,
+        30: 2,
+        40: 3,
+        50: 4,
+        60: 5,
+        70: 6,
+        80: 7,
+        90: 8,
+        95: 9,
+        100: 10,
+    }
 
     if "class_counts" not in df.columns:
         raise ValueError(
@@ -127,7 +141,9 @@ def compute_class_frequencies(
                     if 0 <= mapped_val < num_classes:
                         counts[mapped_val] += count
         except Exception as e:
-            logger.warning(f"Failed to parse class_counts for patch {row.get('patch_id')}: {e}")
+            logger.warning(
+                f"Failed to parse class_counts for patch {row.get('patch_id')}: {e}"
+            )
             continue
     return counts
 
@@ -140,11 +156,15 @@ if __name__ == "__main__":
         # Configuration for class weights
         stage_cfg = cfg.get("class_weights", {})
         if not stage_cfg:
-            logger.error("No class_weights config found in params.yaml (Hydra context).")
+            logger.error(
+                "No class_weights config found in params.yaml (Hydra context)."
+            )
             return
 
         compute_class_weights(
-            index_path=stage_cfg.get("input_index", "data/index/dataset_index_with_split.csv"),
+            index_path=stage_cfg.get(
+                "input_index", "data/index/dataset_index_with_split.csv"
+            ),
             output_path=stage_cfg.get("output_path", "data/stats/class_weights.json"),
             split_name=stage_cfg.get("split_name", "train"),
             cloud_frac_max=stage_cfg.get("cloud_fraction_max", 0.20),

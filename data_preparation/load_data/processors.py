@@ -80,7 +80,9 @@ class TileSampler:
             if "iso_a3" in gdf.columns:
                 country_key = "iso_a3"
             elif len(gdf) > 0:
-                logger.warning(f"{country_key} not in grid. Treating as single group for sampling.")
+                logger.warning(
+                    f"{country_key} not in grid. Treating as single group for sampling."
+                )
                 # We won't modify gdf in place to add a column, just pass a dummy column name?
                 # The utility handles missing column by adding temporary one if we pass dataframe.
                 # But here we are passing GDF.
@@ -100,7 +102,9 @@ class TileSampler:
         )
         final_gdf = sampler.sample(gdf, total_tiles)
 
-        if isinstance(final_gdf, pd.DataFrame) and not isinstance(final_gdf, gpd.GeoDataFrame):
+        if isinstance(final_gdf, pd.DataFrame) and not isinstance(
+            final_gdf, gpd.GeoDataFrame
+        ):
             # Ensure it stays GeoDataFrame if pandas conversion happened (unlikely but safe)
             final_gdf = gpd.GeoDataFrame(final_gdf, crs=gdf.crs)
 

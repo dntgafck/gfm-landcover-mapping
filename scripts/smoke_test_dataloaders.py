@@ -72,7 +72,9 @@ def main():
             print(f"Batch Shape: X={images.shape}, Y={masks.shape}")
             print(f"Dtypes: X={images.dtype}, Y={masks.dtype}")
             print(f"Range X: {images.min():.3f} to {images.max():.3f}")
-            print(f"Range Y: {masks.min()} to {masks.max()} (Classes: {torch.unique(masks)})")
+            print(
+                f"Range Y: {masks.min()} to {masks.max()} (Classes: {torch.unique(masks)})"
+            )
             print(f"Sample IDs: {ids}")
             print(f"Countries: {country}")
 

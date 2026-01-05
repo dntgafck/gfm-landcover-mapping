@@ -54,11 +54,18 @@ def test_labeling_alignment_assertions(mock_s3, mock_grid_geojson, tmp_path):
     # Mock tile downloading and mosaicking
     # We'll mock the internal methods to avoid actual processing
     with mock.patch.object(labeler, "tiles_for_bounds", return_value=["S01E000"]):
-        with mock.patch.object(labeler, "_download_tile_if_missing", return_value=Path("mock.tif")):
+        with mock.patch.object(
+            labeler, "_download_tile_if_missing", return_value=Path("mock.tif")
+        ):
             with mock.patch.object(
                 labeler,
                 "_mosaic_tiles",
-                return_value=(np.zeros((10, 10)), from_origin(0, 0, 0.1, 0.1), "EPSG:4326", 0),
+                return_value=(
+                    np.zeros((10, 10)),
+                    from_origin(0, 0, 0.1, 0.1),
+                    "EPSG:4326",
+                    0,
+                ),
             ):
                 with mock.patch(
                     "data_preparation.load_data.worldcover_labels.reproject"

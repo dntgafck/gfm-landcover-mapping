@@ -26,7 +26,9 @@ class DiceLoss(nn.Module):
         # One-hot encode targets
         targets_clamped = targets.clone()
         targets_clamped[targets == self.ignore_index] = 0
-        targets_one_hot = F.one_hot(targets_clamped, num_classes).permute(0, 3, 1, 2).float()
+        targets_one_hot = (
+            F.one_hot(targets_clamped, num_classes).permute(0, 3, 1, 2).float()
+        )
 
         # Apply mask
         probs = probs * mask
@@ -55,7 +57,9 @@ class CombinedLoss(nn.Module):
         super().__init__()
         self.ce_weight = ce_weight
         self.dice_weight = dice_weight
-        self.ce_loss = nn.CrossEntropyLoss(weight=class_weights, ignore_index=ignore_index)
+        self.ce_loss = nn.CrossEntropyLoss(
+            weight=class_weights, ignore_index=ignore_index
+        )
         self.dice_loss = DiceLoss(ignore_index=ignore_index)
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
@@ -112,7 +116,9 @@ class LandCoverSegmentationModule(pl.LightningModule):
         if loss_type == "ce":
             self.criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
         elif loss_type == "weighted_ce":
-            self.criterion = nn.CrossEntropyLoss(weight=weights_t, ignore_index=ignore_index)
+            self.criterion = nn.CrossEntropyLoss(
+                weight=weights_t, ignore_index=ignore_index
+            )
         elif loss_type == "ce_dice":
             self.criterion = CombinedLoss(
                 ce_weight=1.0, dice_weight=dice_weight, ignore_index=ignore_index
@@ -130,7 +136,9 @@ class LandCoverSegmentationModule(pl.LightningModule):
         # Metrics
         metrics = MetricCollection(
             {
-                "mIoU": MulticlassJaccardIndex(num_classes=num_classes, ignore_index=ignore_index),
+                "mIoU": MulticlassJaccardIndex(
+                    num_classes=num_classes, ignore_index=ignore_index
+                ),
                 "macro_f1": MulticlassF1Score(
                     num_classes=num_classes, ignore_index=ignore_index, average="macro"
                 ),
@@ -167,7 +175,12 @@ class LandCoverSegmentationModule(pl.LightningModule):
 
         # Log training loss
         self.log(
-            "train/loss", loss, on_step=True, on_epoch=True, prog_bar=True, batch_size=masks.size(0)
+            "train/loss",
+            loss,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=masks.size(0),
         )
 
         # Update metrics
@@ -186,7 +199,12 @@ class LandCoverSegmentationModule(pl.LightningModule):
 
         # Log validation loss
         self.log(
-            "val/loss", loss, on_step=False, on_epoch=True, prog_bar=True, batch_size=masks.size(0)
+            "val/loss",
+            loss,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=masks.size(0),
         )
 
         # Update metrics
@@ -264,13 +282,19 @@ class LandCoverSegmentationModule(pl.LightningModule):
             pass
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        optimizer = torch.optim.AdamW(
+            self.parameters(), lr=self.lr, weight_decay=self.weight_decay
+        )
 
         if self.scheduler_type == "cosine":
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.T_max)
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max=self.T_max
+            )
         elif self.scheduler_type == "step":
             scheduler = torch.optim.lr_scheduler.StepLR(
-                optimizer, step_size=self.scheduler_step_size, gamma=self.scheduler_gamma
+                optimizer,
+                step_size=self.scheduler_step_size,
+                gamma=self.scheduler_gamma,
             )
         elif self.scheduler_type == "none":
             return optimizer
