@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-ACTIVATE_ENV=false
+ACTIVATE_ENV=true
 
 # Parse arguments
 for arg in "$@"; do
@@ -176,7 +176,7 @@ if [[ $? -eq 0 ]]; then
         # This only works if the script is sourced
         if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             echo "Warning: Script must be sourced to activate environment"
-            echo "Run: source ./scripts/setup_env.sh --activate"
+            echo "Run: source ./setup.sh --activate"
         else
             eval "$(pixi shell-hook)"
             echo "✓ Pixi environment is now active"
@@ -190,7 +190,7 @@ if [[ $? -eq 0 ]]; then
         echo "  pixi run <command>"
         echo ""
         echo "Or source this script:"
-        echo "  source ./scripts/setup_env.sh --activate"
+        echo "  source ./setup.sh --activate"
         echo ""
     fi
 else
