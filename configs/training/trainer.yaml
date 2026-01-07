@@ -14,3 +14,4 @@ runs_root: "runs"
 export:
   enabled: true
   onnx_filename: "model.onnx"
+  checkpoint: "best" # "best" or "last"

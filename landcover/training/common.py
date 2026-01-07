@@ -174,19 +174,52 @@ def mirror_to_mlflow(
         logger.info("Mirrored lineage.json to MLflow")
 
 
+def resolve_checkpoint_path(run_dir: Path, checkpoint_type: str = "best") -> Path:
+    """Resolve checkpoint path based on run_dir and checkpoint type.
+
+    Args:
+        run_dir: Path to the run directory
+        checkpoint_type: Type of checkpoint to resolve ('best' or 'last')
+
+    Returns:
+        Path to the checkpoint file
+
+    Raises:
+        ValueError: If checkpoint_type is not 'best' or 'last'
+        FileNotFoundError: If the checkpoint file does not exist
+    """
+    checkpoints_dir = Path(run_dir) / "checkpoints"
+
+    if checkpoint_type == "best":
+        checkpoint_path = checkpoints_dir / "best.ckpt"
+    elif checkpoint_type == "last":
+        checkpoint_path = checkpoints_dir / "last.ckpt"
+    else:
+        raise ValueError(
+            f"Unknown checkpoint type: {checkpoint_type}. Use 'best' or 'last'."
+        )
+
+    if not checkpoint_path.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+
+    return checkpoint_path
+
+
 def export_model(
     cfg: DictConfig,
-    trainer,
     model: UNetBaseline,
-    export_dir: "Path | None" = None,
+    checkpoint_path: "str | Path",
+    export_dir: Path,
+    norm_stats_path: "str | Path | None" = None,
 ) -> None:
-    """Export the best model to ONNX format with metadata.
+    """Export a model to ONNX format with metadata.
 
     Args:
         cfg: Hydra configuration object
-        trainer: Lightning Trainer instance
-        model: The UNet model architecture
-        export_dir: Directory to save exports (default: from config)
+        model: The UNet model architecture (weights will be loaded from checkpoint)
+        checkpoint_path: Path to the checkpoint file to export
+        export_dir: Directory to save exports
+        norm_stats_path: Path to norm_stats.json (default: from cfg.data.norm_stats_path)
     """
     import shutil
     from pathlib import Path
@@ -195,29 +228,19 @@ def export_model(
 
     export_cfg = dict(cfg.trainer).get("export", {})
 
-    # Skip if export is disabled
-    if not export_cfg.get("enabled", True):
-        logger.info("Model export disabled in config. Skipping.")
-        return
-
-    # Use provided export_dir or fall back to config
-    if export_dir is not None:
-        artifacts_dir = Path(export_dir)
-    else:
-        artifacts_dir = Path(export_cfg.get("artifacts_dir", "export"))
-
+    artifacts_dir = Path(export_dir)
     onnx_filename = export_cfg.get("onnx_filename", "model.onnx")
+    checkpoint_path = Path(checkpoint_path)
 
     logger.info(f"Exporting model to {artifacts_dir}...")
-    best_model_path = trainer.checkpoint_callback.best_model_path
 
-    if not best_model_path:
-        logger.warning("No best model checkpoint found. Skipping export.")
+    if not checkpoint_path.exists():
+        logger.warning(f"Checkpoint not found: {checkpoint_path}. Skipping export.")
         return
 
-    logger.info(f"Loading best model from {best_model_path} for export.")
+    logger.info(f"Loading model from {checkpoint_path} for export.")
     export_module = LandCoverSegmentationModule.load_from_checkpoint(
-        best_model_path, model=model
+        checkpoint_path, model=model
     ).cpu()
     export_module.eval()
 
@@ -242,8 +265,11 @@ def export_model(
     except Exception as e:
         logger.warning(f"Failed to export to ONNX: {e}")
 
-    # Copy norm stats
-    shutil.copy(cfg.data.norm_stats_path, artifacts_dir / "norm_stats.json")
+    # Copy norm stats (use provided path or fall back to config)
+    stats_source = (
+        Path(norm_stats_path) if norm_stats_path else Path(cfg.data.norm_stats_path)
+    )
+    shutil.copy(stats_source, artifacts_dir / "norm_stats.json")
 
     # Save inference config (subset of full config relevant for inference)
     inference_config = {

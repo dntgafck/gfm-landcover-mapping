@@ -123,8 +123,13 @@ def train(cfg: DictConfig, run_id: str, run_dir: Path) -> None:
     logger.info("Starting training...")
     trainer.fit(segmentation_module, datamodule=datamodule)
 
-    # 8. Export best model
-    export_model(cfg, trainer, model, run_paths["export"])
+    # 8. Export model
+    export_cfg = dict(cfg.trainer).get("export", {})
+    if export_cfg.get("enabled", True):
+        checkpoint_path = trainer.checkpoint_callback.best_model_path
+        export_model(cfg, model, checkpoint_path, run_paths["export"])
+    else:
+        logger.info("Model export disabled in config. Skipping.")
 
     # 9. Mirror artifacts to MLflow if enabled
     if mlflow_logger is not None:

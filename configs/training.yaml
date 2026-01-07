@@ -1,0 +1,15 @@
+# Training configuration - only loads training-related configs
+defaults:
+  - model: unet_baseline
+  - training/data@data
+  - training/module@module
+  - training/trainer@trainer
+  - training/callbacks@callbacks
+  - training/logging@logging
+  - training/debug@debug
+  - _self_
+
+seed: 42
+
+# Run settings
+run_id: null # null = auto-generated
