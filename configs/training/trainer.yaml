@@ -5,6 +5,12 @@ precision: "32-true"
 log_every_n_steps: 10
 deterministic: false
 
+# Run directory configuration
+# Note: run_dir is created programmatically with structure:
+#   runs/{run_id}/config/, logs/, checkpoints/, artifacts/, export/
+runs_root: "runs"
+
+# Export configuration (paths set relative to run_dir/export/)
 export:
-  artifacts_dir: "${hydra:run.dir}/artifacts"
+  enabled: true
   onnx_filename: "model.onnx"

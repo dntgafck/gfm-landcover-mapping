@@ -1,5 +1,4 @@
 import json
-import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -108,8 +107,8 @@ def process_tile(
                         "col_off": col_off,
                         "patch_size": patch_size,
                         "stride": stride,
-                        "spectral_path": os.path.relpath(spec_path, repo_root),
-                        "label_path": os.path.relpath(label_path, repo_root),
+                        "spectral_path": str(spec_path.relative_to(repo_root)),
+                        "label_path": str(label_path.relative_to(repo_root)),
                         "valid_frac": vf,
                         "cloud_frac": cf,
                         "unique_classes": ls["unique_classes"],

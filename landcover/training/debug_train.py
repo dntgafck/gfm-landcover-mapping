@@ -1,33 +1,47 @@
-"""Debug/overfit training entrypoint for sanity testing."""
+"""Debug training entrypoint for quick development iterations.
 
-import sys
+Runs training on a small dataset subset with validation enabled.
+"""
+
+from datetime import datetime
+from pathlib import Path
 
 import pytorch_lightning as pl
 import torch
 from omegaconf import DictConfig, OmegaConf
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.loggers import MLFlowLogger
 
 from landcover.callbacks.plots import PlotLoggerCallback
 from landcover.training.common import (
     create_datamodule,
     create_model,
     create_module,
+    get_git_revision_hash,
     load_or_compute_class_weights,
+    mirror_to_mlflow,
 )
+from utils.lineage import compute_lineage_metadata, get_lineage_tags, save_lineage
 from utils.logging import get_logger
+from utils.run_id import get_run_paths
 
 logger = get_logger(__name__)
 
-# PASS/FAIL thresholds
-MIOU_PASS_THRESHOLD = 0.85
-MIOU_WARN_THRESHOLD = 0.70
 
+def debug_train(cfg: DictConfig, run_id: str, run_dir: Path) -> None:
+    """Run debug training on a small dataset subset.
 
-def debug_train(cfg: DictConfig) -> None:
-    """Run overfit-100 sanity test training.
+    This is a quick training mode for development and testing.
+    Uses a subset of the data but runs full training pipeline with validation.
 
-    This trains on a small subset of data to verify the model can overfit,
-    confirming the training pipeline is working correctly.
+    Args:
+        cfg: Hydra configuration object
+        run_id: str
+        run_dir: Path to the run directory for all outputs
     """
+    # Get standard paths within run directory
+    run_paths = get_run_paths(run_dir)
+
     # Optimize for Tensor Cores
     torch.set_float32_matmul_precision("high")
 
@@ -35,37 +49,59 @@ def debug_train(cfg: DictConfig) -> None:
     pl.seed_everything(cfg.seed, workers=True)
     logger.info(f"Debug Training Configuration:\n{OmegaConf.to_yaml(cfg)}")
 
-    # 2. Create components with overfit mode enabled
-    datamodule = create_datamodule(cfg, overfit_mode=True)
+    # 2. Create components with debug mode enabled
+    datamodule = create_datamodule(cfg, debug_mode=True)
     model = create_model(cfg)
     class_weights = load_or_compute_class_weights(cfg, datamodule)
-    segmentation_module = create_module(cfg, model, class_weights, overfit_mode=True)
+    segmentation_module = create_module(cfg, model, class_weights)
 
-    # 3. Minimal callbacks (no checkpointing/early stopping)
+    # 3. Callbacks - all paths relative to run_dir
     callbacks = [
-        PlotLoggerCallback(output_dir=cfg.callbacks.plots.output_dir),
+        PlotLoggerCallback(output_dir=run_paths["plots"]),
+        EarlyStopping(
+            monitor=cfg.callbacks.early_stopping.monitor,
+            patience=cfg.callbacks.early_stopping.patience,
+            mode=cfg.callbacks.early_stopping.mode,
+        ),
+        ModelCheckpoint(
+            dirpath=run_paths["checkpoints"],
+            monitor=cfg.callbacks.model_checkpoint.monitor,
+            save_top_k=cfg.callbacks.model_checkpoint.save_top_k,
+            save_last=cfg.callbacks.model_checkpoint.get("save_last", True),
+            mode=cfg.callbacks.model_checkpoint.mode,
+            filename=cfg.callbacks.model_checkpoint.filename,
+        ),
     ]
 
-    # 4. Trainer setup with overfit overrides
+    # 4. Trainer setup (uses normal trainer config)
     trainer_kwargs = dict(cfg.trainer)
+    # Remove non-Trainer params
     trainer_kwargs.pop("export", None)
+    trainer_kwargs.pop("runs_root", None)
 
-    # Apply overfit-specific overrides
-    trainer_kwargs.update(
-        {
-            "max_steps": cfg.debug.overfit_max_steps,
-            "max_epochs": -1,  # Use max_steps instead
-            "limit_val_batches": 0,
-            "num_sanity_val_steps": 0,
-            "enable_checkpointing": False,
-        }
-    )
-    logger.info("Overfit mode: trainer overrides applied.")
-
-    # Simple CSV logger only
+    # 5. Loggers - CSVLogger writes to run_dir/logs/
     loggers = [
-        pl.loggers.CSVLogger("logs", name="landcover_overfit"),
+        pl.loggers.CSVLogger(
+            save_dir=str(run_paths["logs"]),
+            name=None,
+            version="",
+        ),
     ]
+
+    # MLflow logger (optional)
+    mlflow_logger = None
+    if cfg.logging.mlflow.enabled:
+        mlflow_logger = MLFlowLogger(
+            tracking_uri=cfg.logging.mlflow.tracking_uri,
+            experiment_name=cfg.logging.mlflow.experiment_name,
+            run_name=f"{cfg.logging.mlflow.run_name or run_id}",
+            tags={
+                "git_commit": get_git_revision_hash(),
+                "mode": "debug",
+                "run_dir": str(run_dir),
+            },
+        )
+        loggers.append(mlflow_logger)
 
     trainer = pl.Trainer(
         **trainer_kwargs,
@@ -73,38 +109,33 @@ def debug_train(cfg: DictConfig) -> None:
         logger=loggers,
     )
 
-    # 5. Train
-    logger.info("Starting overfit training...")
+    # Log full config as hyperparameters for reproducibility
+    hparams = OmegaConf.to_container(cfg, resolve=True)
+    trainer.logger.log_hyperparams(hparams)
+
+    # 6. Compute and save lineage metadata
+    lineage = compute_lineage_metadata(cfg, cfg.seed)
+    lineage["mode"] = "debug"
+    save_lineage(lineage, run_paths["lineage"])
+
+    # Add lineage tags to MLflow if enabled
+    if mlflow_logger is not None:
+        lineage_tags = get_lineage_tags(lineage)
+        lineage_tags["mode"] = "debug"
+        for key, value in lineage_tags.items():
+            mlflow_logger.experiment.set_tag(mlflow_logger.run_id, key, value)
+
+    # 7. Train
+    logger.info("Starting debug training...")
     trainer.fit(segmentation_module, datamodule=datamodule)
 
-    # 6. Evaluate PASS/FAIL
-    _evaluate_overfit_result(trainer)
+    # 8. Log final metrics
+    final_metrics = trainer.callback_metrics
+    logger.info("Debug training complete. Final metrics:")
+    for key, value in final_metrics.items():
+        logger.info(f"  {key}: {float(value):.4f}")
 
+    if mlflow_logger is not None:
+        mirror_to_mlflow(cfg, mlflow_logger, run_paths)
 
-def _evaluate_overfit_result(trainer: pl.Trainer) -> None:
-    """Evaluate overfit training result and report PASS/FAIL/WARN status."""
-    train_miou = trainer.callback_metrics.get("train/mIoU_epoch")
-    if train_miou is None:
-        train_miou = trainer.callback_metrics.get("train/mIoU")
-
-    if train_miou is None:
-        logger.warning("Could not find train/mIoU in metrics. PASS/FAIL skipped.")
-        return
-
-    train_miou = float(train_miou)
-
-    if train_miou >= MIOU_PASS_THRESHOLD:
-        status = "PASS"
-        color = "\033[92m"  # Green
-    elif train_miou >= MIOU_WARN_THRESHOLD:
-        status = "WARN"
-        color = "\033[93m"  # Yellow
-    else:
-        status = "FAIL"
-        color = "\033[91m"  # Red
-
-    reset = "\033[0m"
-    print(f"\n{color}OVERFIT-100: {status} (train mIoU={train_miou:.4f}){reset}\n")
-
-    if status == "FAIL":
-        sys.exit(1)
+    logger.info(f"Debug training complete. All outputs saved to: {run_dir}")

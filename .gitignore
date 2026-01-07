@@ -221,6 +221,7 @@ data
 !data/**/*.dvc
 
 .DS_Store
-exports/
-logs/
 outputs/
+mlflow/
+runs/
+.idea/

@@ -1,8 +1,8 @@
 import hashlib
 import json
-import os
 import shutil
 from datetime import datetime
+from pathlib import Path
 
 import geopandas as gpd
 from sentinelhub import (
@@ -176,7 +176,7 @@ class SentinelDataLoader:
 
         logger.info(f"Starting batch download for {len(gdf)} items.")
 
-        os.makedirs(output_folder, exist_ok=True)
+        Path(output_folder).mkdir(parents=True, exist_ok=True)
 
         for idx, row in tqdm(gdf.iterrows(), total=len(gdf), desc="Downloading tiles"):
             try:
@@ -204,59 +204,55 @@ class SentinelDataLoader:
                 )
 
                 # Target directory: output_folder/<cache_key>
-                target_dir = os.path.join(output_folder, cache_key)
+                target_dir = Path(output_folder) / cache_key
 
                 # 1. Check idempotency
                 # We check for spectral.tif because response.tiff is only for single-file outputs
-                if os.path.exists(os.path.join(target_dir, "spectral.tif")):
+                if (target_dir / "spectral.tif").exists():
                     logger.info(f"Tile {tile_id} (key: {cache_key}) exists. Skipping.")
                     continue
 
                 # 2. Download to a temporary location
                 # We use a temp dir specific to this download to avoid collisions
-                temp_download_dir = os.path.join(output_folder, f"temp_{cache_key}")
-                if os.path.exists(temp_download_dir):
+                temp_download_dir = Path(output_folder) / f"temp_{cache_key}"
+                if temp_download_dir.exists():
                     shutil.rmtree(temp_download_dir)
-                os.makedirs(temp_download_dir)
+                temp_download_dir.mkdir(parents=True, exist_ok=True)
 
                 logger.info(f"Downloading tile {tile_id}...")
                 self.download_data(
                     bbox_coords=bounds,
                     time_interval=time_interval,
                     resolution=resolution,
-                    output_folder=temp_download_dir,
+                    output_folder=str(temp_download_dir),
                 )
 
                 # 3. Locate the result
                 # SentinelHubRequest creates a subfolder with the request_id
                 # We expect exactly one subfolder in our temp dir
-                subfolders = [
-                    f
-                    for f in os.listdir(temp_download_dir)
-                    if os.path.isdir(os.path.join(temp_download_dir, f))
-                ]
+                subfolders = [f for f in temp_download_dir.iterdir() if f.is_dir()]
                 if not subfolders:
                     raise FileNotFoundError(
                         "Sentinel Hub did not create an output directory."
                     )
 
-                sh_result_dir = os.path.join(temp_download_dir, subfolders[0])
+                sh_result_dir = subfolders[0]
 
                 # 4. Move to target location (atomic-ish rename)
-                if os.path.exists(target_dir):
+                if target_dir.exists():
                     shutil.rmtree(target_dir)
 
-                shutil.move(sh_result_dir, target_dir)
+                shutil.move(str(sh_result_dir), str(target_dir))
 
                 # 4.5 Extract tar if present
-                tar_path = os.path.join(target_dir, "response.tar")
-                if os.path.exists(tar_path):
+                tar_path = target_dir / "response.tar"
+                if tar_path.exists():
                     logger.info(f"Extracting {tar_path}...")
                     import tarfile
 
                     with tarfile.open(tar_path) as tar:
                         tar.extractall(path=target_dir)
-                    os.remove(tar_path)
+                    tar_path.unlink()
 
                 # Cleanup temp dir
                 shutil.rmtree(temp_download_dir)
@@ -283,7 +279,7 @@ class SentinelDataLoader:
                     "created_utc": datetime.utcnow().isoformat(),
                 }
 
-                with open(os.path.join(target_dir, "manifest.json"), "w") as f:
+                with open(target_dir / "manifest.json", "w") as f:
                     json.dump(manifest, f, indent=2)
 
                 # 6. Ensure request.json exists (Sentinel Hub SDK usually writes it)

@@ -1,12 +1,12 @@
-import os
 import sys
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
 # Ensure root (current dir) is in path so we can import landcover
-sys.path.append(os.getcwd())
+sys.path.append(str(Path.cwd()))
 
 from landcover.datasets.datamodule import LandCoverDataModule
 from utils.logging import setup_logging
@@ -53,8 +53,8 @@ def main():
         splits["test_ood"] = test_loaders[1]
     del splits["test (list)"]
 
-    output_dir = "outputs/smoke_test"
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir = Path("outputs/smoke_test")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     for name, loader in splits.items():
         print(f"\n--- Testing Split: {name} ---")
@@ -114,7 +114,7 @@ def main():
             plt.title(f"{name} Label")
             plt.axis("off")
 
-            save_path = os.path.join(output_dir, f"viz_{name}.png")
+            save_path = output_dir / f"viz_{name}.png"
             plt.savefig(save_path)
             plt.close()
             print(f"Saved visualization to {save_path}")

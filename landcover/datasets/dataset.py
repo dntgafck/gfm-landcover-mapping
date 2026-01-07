@@ -98,18 +98,18 @@ class LandCoverPatchDataset(Dataset):
         label_path = row["label_path"]
 
         # Ensure local paths are respected
-        import os
+        from pathlib import Path
 
-        local_spectral_path = os.path.join(self.repo_root, spectral_path)
-        local_label_path = os.path.join(self.repo_root, label_path)
+        local_spectral_path = Path(self.repo_root) / spectral_path
+        local_label_path = Path(self.repo_root) / label_path
 
         # Check local existence
-        if not os.path.exists(local_spectral_path):
+        if not local_spectral_path.exists():
             raise FileNotFoundError(
                 f"Spectral patch not found at {local_spectral_path}. "
                 "Ensure DataModule.prepare_data() has run or run 'dvc pull'."
             )
-        if not os.path.exists(local_label_path):
+        if not local_label_path.exists():
             raise FileNotFoundError(
                 f"Label patch not found at {local_label_path}. "
                 "Ensure DataModule.prepare_data() has run or run 'dvc pull'."

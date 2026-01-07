@@ -2,11 +2,15 @@ early_stopping:
   monitor: "val/mIoU"
   patience: 10
   mode: "max"
+
 model_checkpoint:
   monitor: "val/mIoU"
   save_top_k: 1
+  save_last: true
   mode: "max"
-  filename: "best-{epoch:02d}-{val_mIoU:.3f}"
+  # Stable filename without metric formatting (avoids path issues)
+  filename: "best"
 
+# Note: plots.output_dir is set programmatically to run_dir/artifacts/plots
 plots:
-  output_dir: "${hydra:run.dir}/plots"
+  enabled: true

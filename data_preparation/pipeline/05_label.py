@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 import hydra
@@ -28,7 +27,7 @@ def main(cfg: DictConfig):
     )
 
     # Initialize labeler with lazy grid loading if possible, but __init__ reads it.
-    if not os.path.exists(wc_grid_path):
+    if not Path(wc_grid_path).exists():
         print(
             f"WARNING: WorldCover grid not found at {wc_grid_path}. Labeling might fail."
         )
@@ -50,15 +49,12 @@ def main(cfg: DictConfig):
 
     # Collect tasks
     tasks = []
-    for root, _dirs, files in os.walk(input_root):
-        for file in files:
-            if file == "spectral.tif":
-                ref_path = Path(root) / file
-                rel_path = ref_path.relative_to(input_root)
-                out_path = output_root / rel_path.parent / "labels.tif"
+    for ref_path in input_root.rglob("spectral.tif"):
+        rel_path = ref_path.relative_to(input_root)
+        out_path = output_root / rel_path.parent / "labels.tif"
 
-                if not out_path.exists():
-                    tasks.append((ref_path, out_path))
+        if not out_path.exists():
+            tasks.append((ref_path, out_path))
 
     if not tasks:
         print("No new labels to generate.")

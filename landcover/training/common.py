@@ -1,9 +1,11 @@
 """Shared utilities for training and debug training."""
 
 import subprocess
+from pathlib import Path
 
 import torch
 from omegaconf import DictConfig
+from pytorch_lightning.loggers import MLFlowLogger
 
 from landcover.datasets.datamodule import LandCoverDataModule
 from landcover.models.segmentation import LandCoverSegmentationModule
@@ -26,9 +28,7 @@ def get_git_revision_hash() -> str:
         return "unknown"
 
 
-def create_datamodule(
-    cfg: DictConfig, overfit_mode: bool = False
-) -> LandCoverDataModule:
+def create_datamodule(cfg: DictConfig, debug_mode: bool = False) -> LandCoverDataModule:
     """Create and return a LandCoverDataModule based on configuration."""
     return LandCoverDataModule(
         index_path=cfg.data.index_path,
@@ -37,8 +37,8 @@ def create_datamodule(
         num_workers=cfg.data.num_workers,
         cloud_frac_max=cfg.data.cloud_frac_max,
         test_apply_cloud_filter=cfg.data.test_apply_cloud_filter,
-        augment=cfg.data.augment if not overfit_mode else False,
-        overfit_cfg=cfg.debug if overfit_mode else None,
+        augment=cfg.data.augment if not debug_mode else False,
+        overfit_cfg=cfg.debug if debug_mode else None,
         seed=cfg.seed,
     )
 
@@ -60,7 +60,7 @@ def load_or_compute_class_weights(
 ) -> list | None:
     """Load class weights from file or compute them if needed."""
     import json
-    import os
+    from pathlib import Path
 
     module_cfg = cfg.module
     if module_cfg.loss.name not in ["weighted_ce", "weighted_ce_dice"]:
@@ -69,7 +69,7 @@ def load_or_compute_class_weights(
     weights_path = module_cfg.loss.get("class_weights_path")
 
     if module_cfg.loss.get("compute_if_missing") and (
-        not weights_path or not os.path.exists(weights_path)
+        not weights_path or not Path(weights_path).exists()
     ):
         logger.info("Class weights missing or not specified. Computing...")
         datamodule.prepare_data()
@@ -84,7 +84,7 @@ def load_or_compute_class_weights(
             min_weight=module_cfg.loss.get("min_weight", 0.25),
             max_weight=module_cfg.loss.get("max_weight", 4.0),
         )
-    elif weights_path and os.path.exists(weights_path):
+    elif weights_path and Path(weights_path).exists():
         logger.info(f"Loading class weights from {weights_path}")
         with open(weights_path) as f:
             weights_data = json.load(f)
@@ -97,49 +97,115 @@ def create_module(
     cfg: DictConfig,
     model: UNetBaseline,
     class_weights: list | None = None,
-    overfit_mode: bool = False,
 ) -> LandCoverSegmentationModule:
     """Create and return a LandCoverSegmentationModule."""
     module_cfg = cfg.module
-
-    # Determine scheduler and LR based on mode
-    if overfit_mode:
-        scheduler_type = "none"
-        lr = cfg.debug.overfit_lr
-        logger.info(f"Overfit mode: forcing constant LR={lr} (scheduler=none)")
-    else:
-        scheduler_type = module_cfg.scheduler.name
-        lr = module_cfg.lr
 
     return LandCoverSegmentationModule(
         model=model,
         num_classes=cfg.model.num_classes,
         ignore_index=module_cfg.ignore_index,
-        lr=lr,
+        lr=module_cfg.lr,
         weight_decay=module_cfg.weight_decay,
         loss_type=module_cfg.loss.name,
         dice_weight=module_cfg.loss.get("dice_weight", 0.2),
         class_weights=class_weights,
-        scheduler_type=scheduler_type,
+        scheduler_type=module_cfg.scheduler.name,
         scheduler_step_size=module_cfg.scheduler.get("step_size", 20),
         scheduler_gamma=module_cfg.scheduler.get("gamma", 0.1),
         T_max=module_cfg.scheduler.get("T_max", cfg.trainer.max_epochs),
     )
 
 
+def mirror_to_mlflow(
+    cfg: DictConfig,
+    mlflow_logger: MLFlowLogger,
+    run_paths: dict[str, Path],
+) -> None:
+    """Mirror local artifacts to MLflow.
+
+    Args:
+        cfg: Configuration object
+        mlflow_logger: MLflow logger instance
+        run_paths: Dictionary of run directory paths
+    """
+    mlflow_cfg = cfg.logging.mlflow
+
+    # Mirror config
+    if mlflow_cfg.get("mirror_config", True):
+        config_path = run_paths["config_yaml"]
+        if config_path.exists():
+            mlflow_logger.experiment.log_artifact(
+                run_id=mlflow_logger.run_id,
+                local_path=str(config_path),
+                artifact_path="config",
+            )
+            logger.info("Mirrored config.yaml to MLflow")
+
+    # Mirror plots
+    if mlflow_cfg.get("mirror_plots", True):
+        plots_dir = run_paths["plots"]
+        if plots_dir.exists():
+            for plot_file in plots_dir.glob("*.png"):
+                mlflow_logger.experiment.log_artifact(
+                    run_id=mlflow_logger.run_id,
+                    local_path=str(plot_file),
+                    artifact_path="plots",
+                )
+            logger.info("Mirrored plots to MLflow")
+
+    # Mirror best checkpoint (optional, can be large)
+    if mlflow_cfg.get("mirror_checkpoint", False):
+        best_ckpt = run_paths["checkpoints"] / "best.ckpt"
+        if best_ckpt.exists():
+            mlflow_logger.experiment.log_artifact(
+                run_id=mlflow_logger.run_id,
+                local_path=str(best_ckpt),
+                artifact_path="checkpoints",
+            )
+            logger.info("Mirrored best.ckpt to MLflow")
+
+    # Mirror lineage
+    lineage_path = run_paths["lineage"]
+    if lineage_path.exists():
+        mlflow_logger.experiment.log_artifact(
+            run_id=mlflow_logger.run_id, local_path=str(lineage_path)
+        )
+        logger.info("Mirrored lineage.json to MLflow")
+
+
 def export_model(
     cfg: DictConfig,
     trainer,
     model: UNetBaseline,
+    export_dir: "Path | None" = None,
 ) -> None:
-    """Export the best model to ONNX format with metadata."""
-    import os
+    """Export the best model to ONNX format with metadata.
+
+    Args:
+        cfg: Hydra configuration object
+        trainer: Lightning Trainer instance
+        model: The UNet model architecture
+        export_dir: Directory to save exports (default: from config)
+    """
     import shutil
+    from pathlib import Path
 
     from omegaconf import OmegaConf
 
     export_cfg = dict(cfg.trainer).get("export", {})
-    artifacts_dir = export_cfg.get("artifacts_dir", "artifacts")
+
+    # Skip if export is disabled
+    if not export_cfg.get("enabled", True):
+        logger.info("Model export disabled in config. Skipping.")
+        return
+
+    # Use provided export_dir or fall back to config
+    if export_dir is not None:
+        artifacts_dir = Path(export_dir)
+    else:
+        artifacts_dir = Path(export_cfg.get("artifacts_dir", "export"))
+
     onnx_filename = export_cfg.get("onnx_filename", "model.onnx")
 
     logger.info(f"Exporting model to {artifacts_dir}...")
@@ -155,11 +221,11 @@ def export_model(
     ).cpu()
     export_module.eval()
 
-    os.makedirs(artifacts_dir, exist_ok=True)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     # Export to ONNX
     try:
-        onnx_path = os.path.join(artifacts_dir, onnx_filename)
+        onnx_path = artifacts_dir / onnx_filename
         dummy_input = torch.randn(1, cfg.model.in_channels, 256, 256).cpu()
 
         with torch.no_grad():
@@ -177,11 +243,20 @@ def export_model(
         logger.warning(f"Failed to export to ONNX: {e}")
 
     # Copy norm stats
-    shutil.copy(
-        cfg.data.norm_stats_path, os.path.join(artifacts_dir, "norm_stats.json")
-    )
+    shutil.copy(cfg.data.norm_stats_path, artifacts_dir / "norm_stats.json")
 
-    # Save config
-    with open(os.path.join(artifacts_dir, "model_config.yaml"), "w") as f:
-        f.write(OmegaConf.to_yaml(cfg))
-    logger.info("Export metadata saved.")
+    # Save inference config (subset of full config relevant for inference)
+    inference_config = {
+        "model": OmegaConf.to_container(cfg.model, resolve=True),
+        "data": {
+            "norm_stats_path": "norm_stats.json",  # Relative to export dir
+            "in_channels": cfg.model.in_channels,
+            "num_classes": cfg.model.num_classes,
+        },
+    }
+    with open(artifacts_dir / "inference_config.yaml", "w") as f:
+        import yaml
+
+        yaml.dump(inference_config, f, default_flow_style=False)
+
+    logger.info(f"Export complete. Files saved to {artifacts_dir}")

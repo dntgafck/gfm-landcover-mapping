@@ -1,10 +1,10 @@
-import os
 import sys
+from pathlib import Path
 
 import torch
 
 # Add the project root to sys.path
-sys.path.append(os.getcwd())
+sys.path.append(str(Path.cwd()))
 
 from landcover.models.unet import UNetBaseline
 
@@ -50,7 +50,7 @@ def test_onnx_export():
     model.eval()
     x = torch.randn(1, 4, 256, 256)
 
-    onnx_path = "unet_baseline.onnx"
+    onnx_path = Path("unet_baseline.onnx")
     try:
         # Standard legacy export
         torch.onnx.export(
@@ -79,8 +79,8 @@ def test_onnx_export():
         # if the environment suggests it, or if certain ops are used.
         raise e
     finally:
-        if os.path.exists(onnx_path):
-            os.remove(onnx_path)
+        if onnx_path.exists():
+            onnx_path.unlink()
 
 
 if __name__ == "__main__":
