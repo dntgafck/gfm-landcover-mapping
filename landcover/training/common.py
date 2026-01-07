@@ -11,6 +11,7 @@ from landcover.datasets.datamodule import LandCoverDataModule
 from landcover.models.segmentation import LandCoverSegmentationModule
 from landcover.models.unet import UNetBaseline
 from landcover.stats.class_weights import compute_class_weights
+from landcover.training.tensorrt import _export_to_tensorrt
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -227,6 +228,7 @@ def export_model(
     from omegaconf import OmegaConf
 
     export_cfg = dict(cfg.trainer).get("export", {})
+    tensorrt_cfg = export_cfg.get("tensorrt", {})
 
     artifacts_dir = Path(export_dir)
     onnx_filename = export_cfg.get("onnx_filename", "model.onnx")
@@ -246,7 +248,7 @@ def export_model(
 
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    # Export to ONNX
+    # Export to ONNX (always performed)
     try:
         onnx_path = artifacts_dir / onnx_filename
         dummy_input = torch.randn(1, cfg.model.in_channels, 256, 256).cpu()
@@ -264,6 +266,11 @@ def export_model(
         logger.info(f"Model exported to {onnx_path}")
     except Exception as e:
         logger.warning(f"Failed to export to ONNX: {e}")
+        return
+
+    # Export to TensorRT if enabled
+    if tensorrt_cfg.get("enabled", False):
+        _export_to_tensorrt(export_module, onnx_path, artifacts_dir, tensorrt_cfg, cfg)
 
     # Copy norm stats (use provided path or fall back to config)
     stats_source = (

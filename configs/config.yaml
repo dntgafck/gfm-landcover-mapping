@@ -15,6 +15,7 @@ defaults:
   - training/callbacks@callbacks
   - training/logging@logging
   - training/debug@debug
+  - training/export@export
   - _self_
 
 seed: 42
