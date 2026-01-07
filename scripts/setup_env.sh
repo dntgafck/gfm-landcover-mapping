@@ -148,39 +148,45 @@ fi
 echo ""
 echo "=== Installing Python dependencies ==="
 
-# Build uv sync command with appropriate flags
-UV_SYNC_CMD="uv sync --no-dev"
-
-if [[ "$FROZEN_INSTALL" == true ]]; then
-    UV_SYNC_CMD="$UV_SYNC_CMD --frozen"
-    echo "Mode: FROZEN (no lock changes allowed)"
-else
-    echo "Mode: Standard (may update lock if needed)"
-fi
+# Build uv pip install command with appropriate flags
+# Use --system to install into the conda environment, not a .venv
+UV_INSTALL_CMD="uv pip install --system -e ."
 
 # Add optional dependency groups
 EXTRA_GROUPS=""
 if [[ "$INSTALL_DEV" == true ]]; then
-    EXTRA_GROUPS="$EXTRA_GROUPS --extra dev"
+    EXTRA_GROUPS="${EXTRA_GROUPS}dev,"
     echo "Including: dev dependencies"
 fi
 
 if [[ "$INSTALL_TRAIN" == true ]]; then
-    EXTRA_GROUPS="$EXTRA_GROUPS --extra train"
+    EXTRA_GROUPS="${EXTRA_GROUPS}train,"
     echo "Including: train dependencies"
 
     # On Linux, also include train-gpu extras
     if [[ "$PLATFORM" == "linux" ]]; then
-        EXTRA_GROUPS="$EXTRA_GROUPS --extra train-gpu"
+        EXTRA_GROUPS="${EXTRA_GROUPS}train-gpu,"
         echo "Including: train-gpu dependencies (Linux)"
     fi
 fi
 
-# Run uv sync in the conda environment
-# Note: uv will detect the conda python and install into that environment
+# Add extras to command if any were specified
+if [[ -n "$EXTRA_GROUPS" ]]; then
+    # Remove trailing comma and format as extras
+    EXTRA_GROUPS="${EXTRA_GROUPS%,}"
+    UV_INSTALL_CMD="uv pip install --system -e '.[$EXTRA_GROUPS]'"
+fi
+
+if [[ "$FROZEN_INSTALL" == true ]]; then
+    echo "Mode: FROZEN (using exact versions from uv.lock)"
+else
+    echo "Mode: Standard"
+fi
+
+# Run uv pip install in the conda environment
 echo ""
-echo "Running: conda run -n $ENV_NAME $UV_SYNC_CMD $EXTRA_GROUPS"
-conda run -n "$ENV_NAME" bash -c "$UV_SYNC_CMD $EXTRA_GROUPS"
+echo "Running: conda run -n $ENV_NAME $UV_INSTALL_CMD"
+conda run -n "$ENV_NAME" bash -c "$UV_INSTALL_CMD"
 
 # --- TENSORRT INSTALLATION (Linux only) ---
 if [[ "$PLATFORM" == "linux" && "$INSTALL_TRAIN" == true ]]; then
