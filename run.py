@@ -107,15 +107,13 @@ class CLI:
     def export(
         self,
         run_id: str,
-        checkpoint: str = "best",
-        runs_root: str = "runs",
+        *overrides: str,
     ) -> None:
         """Export model from an existing run.
 
         Args:
             run_id: ID of the run to export from (e.g., lcseg-20260107-005456-29a2b97)
-            checkpoint: Which checkpoint to export - 'best' or 'last' (default: best)
-            runs_root: Root directory containing runs (default: runs)
+            *overrides: Hydra-style config overrides (e.g., checkpoint=last)
         """
         from landcover.training.common import (
             create_model,
@@ -123,7 +121,7 @@ class CLI:
             resolve_checkpoint_path,
         )
 
-        run_dir = Path(runs_root) / run_id
+        run_dir = Path("runs") / run_id
         run_paths = get_run_paths(run_dir)
 
         # Validate run directory exists
@@ -137,7 +135,6 @@ class CLI:
 
         logger.info("=" * 60)
         logger.info(f"Export Mode - Run ID: {run_id}")
-        logger.info(f"Checkpoint: {checkpoint}")
         logger.info("=" * 60)
 
         # Load config from saved run
@@ -146,12 +143,19 @@ class CLI:
             logger.error(f"Config not found: {config_path}")
             sys.exit(1)
 
-        cfg = OmegaConf.load(config_path)
+        saved_cfg = OmegaConf.load(config_path)
         logger.info(f"Loaded config from {config_path}")
 
-        # Resolve checkpoint path
+        # Apply overrides using Hydra compose and merge with saved config
+        override_cfg = _load_config("training", list(overrides))
+        cfg = OmegaConf.merge(saved_cfg, override_cfg)
+        if overrides:
+            logger.info(f"Applied overrides: {list(overrides)}")
+
+        # Resolve checkpoint path (use checkpoint from config, default to 'best')
+        checkpoint_type = cfg.export.get("checkpoint", "best")
         try:
-            checkpoint_path = resolve_checkpoint_path(run_dir, checkpoint)
+            checkpoint_path = resolve_checkpoint_path(run_dir, checkpoint_type)
         except FileNotFoundError as e:
             logger.error(str(e))
             sys.exit(1)
