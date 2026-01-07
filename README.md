@@ -1,379 +1,580 @@
-# **Land-Cover Mapping with Geospatial Foundation Models**
+# Land-Cover Mapping with Geospatial Foundation Models
 
-Problem Statement
+## ⚠️ Project Status
+
+| Component                                | Status                 |
+| ---------------------------------------- | ---------------------- |
+| Data preparation pipeline (DVC)          | ✅ Implemented         |
+| Data loading & transforms                | ✅ Implemented         |
+| UNet baseline training                   | ✅ Implemented         |
+| Model export (ONNX)                      | ✅ Implemented         |
+| Inference server (FastAPI)               | ✅ Implemented         |
+| **GFM model training (Prithvi, RS-MAE)** | ❌ **Not implemented** |
+
+> **Note:** The original project scope included fine-tuning Geospatial
+> Foundation Models (GFMs) such as Prithvi and RS-MAE. This functionality is not
+> currently implemented—only the UNet baseline model is available for training.
+
+---
+
+# Part 1: Semantic Description
+
+## Problem Statement
 
 This project investigates whether geospatial foundation models (GFMs)—large
 self-supervised transformers pretrained on global multispectral archives—can
 significantly improve the accuracy, label efficiency, and generalization of
-land-cover mapping from satellite imagery. Traditional land-cover classification
-requires extensive labeled datasets and regional models, limiting update
-frequency and global consistency. By fine-tuning GFMs on small labeled subsets
-of Sentinel-2 data, the project aims to determine how much labeling effort can
-be reduced while maintaining or improving classification performance. The
-results are relevant for environmental monitoring, agriculture, climate
+land-cover mapping from satellite imagery.
+
+Traditional land-cover classification requires extensive labeled datasets and
+regional models, limiting update frequency and global consistency. By
+fine-tuning GFMs on small labeled subsets of Sentinel-2 data, the project aims
+to determine how much labeling effort can be reduced while maintaining or
+improving classification performance.
+
+The results are relevant for environmental monitoring, agriculture, climate
 modeling, and urban-planning systems that depend on timely, high-resolution
 land-cover maps.
 
-Input and Output Data Format
+## Data
 
-**Input:**
+### Input
 
-- Multispectral Sentinel-2 Level-2A tiles (13 spectral bands, 10–20 m
-  resolution).
-- Preprocessed into georeferenced image patches (e.g., 256×256 pixels),
-  cloud-masked and normalized.
+- **Sentinel-2 Level-2A** multispectral imagery (4 bands: B02, B03, B04, B08)
+- Preprocessed into georeferenced image patches (256×256 pixels)
+- Cloud-masked and normalized
 
-**Output:**
+### Output
 
-- Pixel-wise land-cover segmentation maps aligned with the spatial grid of the
-  input.
-- Class labels follow the ESA WorldCover taxonomy (e.g., built-up, cropland,
-  forest, shrubland, grassland, water, wetlands, bare soil).
+- Pixel-wise land-cover segmentation maps
+- Class labels follow **ESA WorldCover** taxonomy:
+  - Tree cover, Shrubland, Grassland, Cropland, Built-up
+  - Bare/sparse vegetation, Snow and ice, Permanent water bodies
+  - Herbaceous wetland, Mangroves, Moss and lichen
 
-The system processes batches of image tensors (C×H×W) and outputs segmentation
-logits for each class.
+### Data Sources (Open)
 
-Metrics
+| Dataset        | Description                       | Link                                                      |
+| -------------- | --------------------------------- | --------------------------------------------------------- |
+| Sentinel-2 L2A | 10–20m multispectral imagery      | [Copernicus Data Space](https://dataspace.copernicus.eu/) |
+| ESA WorldCover | 10m land-cover labels (2021/2023) | [worldcover2021.esa.int](https://worldcover2021.esa.int/) |
 
-Primary metrics:
+### Data Pipeline
 
-- **mIoU (mean Intersection over Union):** standard for segmentation; measures
-  overlap per class.
-- **Macro F1-score:** captures performance balance across classes, especially
-  minority classes.
-- **Overall Accuracy:** useful but secondary due to class imbalance.
+The data preparation pipeline is managed with DVC:
 
-Secondary metrics:
+1. **load_aoi** — Load Area of Interest boundaries
+2. **generate_grid** — Create Sentinel-2 tile grid
+3. **select_tiles** — Sample tiles for processing
+4. **download_imagery** — Download Sentinel-2 L2A imagery
+5. **generate_labels** — Create ESA WorldCover labels
+6. **patchify** — Cut tiles into 256×256 patches
+7. **build_index** — Build dataset index CSV
+8. **assign_splits** — Assign train/val/test/ood splits
+9. **compute_norm_stats** — Compute normalization statistics
 
-- **Label-efficiency curves:** performance vs. training label volume.
-- **Cross-region generalization performance:** trained on region A, tested on
-  region B.
+## Metrics
 
-Expected values depend on AOI; typical benchmarks for 10 m land-cover
-classification:
+### Computed Metrics
 
-- mIoU: 0.50–0.70
-- F1: 0.60–0.80
+The training pipeline computes the following metrics using `torchmetrics`:
 
-GFMs are expected to outperform non-pretrained baselines by \+5–15 mIoU in
-low-label regimes.
+| Metric            | Description                                  | Logged As                      |
+| ----------------- | -------------------------------------------- | ------------------------------ |
+| **mIoU**          | Mean Intersection over Union (Jaccard Index) | `{split}/mIoU`                 |
+| **Macro F1**      | F1-score averaged across all classes         | `{split}/macro_f1`             |
+| **Loss**          | Cross-entropy (optionally weighted + Dice)   | `{split}/loss`                 |
+| **Per-class IoU** | IoU for each class (test only)               | `test_{iid,ood}/iou_class_{i}` |
 
-Validation
+Metrics are computed separately for each split:
+
+- `train/` — Training metrics
+- `val/` — Validation metrics (used for early stopping)
+- `test_iid/` — In-distribution test set
+- `test_ood/` — Out-of-distribution test set
+
+### Loss Functions
+
+Configurable via `module.loss.name`:
+
+- `ce` — Cross-entropy loss
+- `weighted_ce` — Weighted cross-entropy (class weights from training data)
+- `ce_dice` — Cross-entropy + Dice loss
+- `weighted_ce_dice` — Weighted cross-entropy + Dice loss
+
+### Validation Strategy
 
 - **Train/val/test split** based on geographically disjoint Areas of Interest
-  (AOIs) to prevent spatial leakage.
-- **Reproducibility:** fixed random seeds, deterministic dataloader settings,
-  logged preprocessing pipeline, explicit STAC queries for data retrieval.
-- **Cross-region validation:** train on one region (e.g., The Netherlands), test
-  on a different region (e.g., Portugal) to evaluate generalization.
-
-All dataset splits and configuration files will be versioned in Git for exact
-reproducibility.
-
-Data
-
-**Data sources (fully open):**
-
-- **Sentinel-2 L2A** (10–20 m multispectral imagery) Copernicus Data Space:
-  [https://dataspace.copernicus.eu/](https://dataspace.copernicus.eu/)
-- **ESA WorldCover 2021/2023** (10 m land-cover labels)
-  [https://worldcover2021.esa.int/](https://worldcover2021.esa.int/)
-- **Optionally:** CORINE Land Cover for Europe
-  [https://land.copernicus.eu/pan-european/corine-land-cover](https://land.copernicus.eu/pan-european/corine-land-cover)
-
-**Features and potential issues:**
-
-- Cloud coverage → mitigated through SCL mask and QA60 confidence layers.
-- Seasonal variability → optional temporal sampling.
-- Class imbalance (e.g., small percentage of built-up areas).
-- Scene heterogeneity between regions may cause domain shift.
-
-Tile lists and preprocessing scripts will be provided for traceability.
-
-Modeling
-
-Baseline
-
-The baseline system is a **lightweight UNet** trained from scratch on Sentinel-2
-patches using ESA WorldCover labels. This provides a simple and well-understood
-benchmark. Alternative baselines include:
-
-- **ResNet-50** classifier applied patch-wise.
-- **Vision Transformer Small (ViT-S)** without pretraining.
-
-These baselines quantify how much benefit GFMs bring beyond classical models.
-
-Main model
-
-The main methods are **geospatial foundation models**, specifically:
-
-1. **Prithvi-100M / Prithvi-300M / Prithvi 2.0 (NASA)**
-   - Transformer encoder pretrained on global multispectral data using masked
-     autoencoding.
-   - GitHub: https://github.com/nasa-nccs/prithvi
-   - Paper: “Prithvi: Foundation Models for Earth Observation”.
-2. **RS-MAE (Masked Autoencoder for Remote Sensing)**
-   - Pretrained on large Sentinel-2 archives.
-   - GitHub: https://github.com/ZhengZixiang/RS-MAE
-   - Paper: “Masked Autoencoders for Remote Sensing”.
-
-These models will be fine-tuned for pixel-wise segmentation using a small
-labeled dataset. Training includes:
-
-- AdamW optimizer
-- Linear warmup and cosine decay
-- Mixed-precision training
-- Experiment tracking with Weights & Biases or MLflow
-
-The final comparison will quantify improvements in accuracy, label-efficiency,
-and cross-region robustness.
-
-## Environment Setup
-
-This project uses **Conda for system/compiled dependencies** and **uv.lock for
-PyPI packages** to ensure reproducible environments across macOS and Linux.
-
-### Prerequisites
-
-- **Conda**: Install [Miniforge](https://github.com/conda-forge/miniforge)
-  (recommended) or Miniconda
-  - macOS: `brew install miniforge`
-  - Linux:
-    `curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh && bash Miniforge3-Linux-x86_64.sh`
-- **uv**: Fast Python package installer
-  - Install: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-
-### Setup Commands
-
-#### macOS Development Setup
-
-For local development on macOS (includes dev tools like Jupyter, pytest,
-pre-commit):
-
-```bash
-./scripts/setup_dev.sh
-conda activate gfm
-```
-
-Or using the base script with flags:
-
-```bash
-./scripts/setup_env.sh --dev
-conda activate gfm
-```
-
-#### Linux Training Setup
-
-For Linux training environments (includes training dependencies and GPU
-support):
-
-```bash
-# Standard setup (may update dependencies)
-./scripts/setup_train_linux.sh
-
-# Frozen setup (exact reproduction, recommended for remote training)
-./scripts/setup_train_linux.sh --frozen
-
-conda activate gfm
-```
-
-Or using the base script:
-
-```bash
-./scripts/setup_env.sh --train --frozen
-conda activate gfm
-```
-
-#### Advanced Options
-
-The base `setup_env.sh` script supports multiple flags:
-
-```bash
-# Flags:
-#   --dev              Install development dependencies
-#   --train            Install training dependencies (+ GPU on Linux)
-#   --refresh-conda    Force recreate conda environment from scratch
-#   --lock             Regenerate uv.lock from pyproject.toml
-#   --frozen           Frozen install (no dependency changes, for CI/remote)
-
-# Examples:
-./scripts/setup_env.sh --dev --train         # Dev + training
-./scripts/setup_env.sh --refresh-conda       # Fresh conda install
-./scripts/setup_env.sh --lock                # Update lockfile
-./scripts/setup_env.sh --train --frozen      # Reproducible remote training
-```
-
-### Architecture
-
-**Conda environments** (`environment.{macos,linux}.yml`):
-
-- Python 3.11
-- Geospatial libraries: GDAL, rasterio, fiona, proj, geos, pyproj, shapely
-- PyTorch with platform-specific optimizations:
-  - macOS: CPU/MPS support
-  - Linux: CUDA 12.1 support
-
-**PyPI packages** (`uv.lock`):
-
-- Base runtime dependencies (PyTorch Lightning, Hydra, MLflow, etc.)
-- Optional dependency groups:
-  - `dev`: Development tools (pytest, Jupyter, pre-commit, DVC, etc.)
-  - `train`: Training utilities (ONNX export, etc.)
-  - `train-gpu`: GPU training utilities (Linux-only)
-
-### Remote Training Workflow
-
-For reproducible training on remote Linux machines:
-
-1. **Local**: Commit your code and `uv.lock` to git
-2. **Remote**: Clone repository
-3. **Remote**: Run frozen setup:
-   ```bash
-   ./scripts/setup_train_linux.sh --frozen
-   conda activate gfm
-   ```
-4. The `--frozen` flag ensures exact dependency reproduction without drift
-
-### Updating Dependencies
-
-To update the lockfile after modifying `pyproject.toml`:
-
-```bash
-./scripts/setup_env.sh --lock
-git add uv.lock
-git commit -m "Update dependencies"
-```
-
-### Troubleshooting
-
-**Conda environment conflicts:**
-
-```bash
-# Force refresh the conda environment
-./scripts/setup_env.sh --refresh-conda --dev
-```
-
-**TensorRT (Linux only):** TensorRT and torch-tensorrt are automatically
-installed via uv on Linux when using `--train`. This is optional for GPU
-inference optimization. If installation fails, you can skip it or install
-manually:
-
-```bash
-conda activate gfm
-uv pip install tensorrt torch-tensorrt
-```
-
-**Import errors after setup:** Ensure you've activated the environment:
-
-```bash
-conda activate gfm
-```
+  (AOIs) to prevent spatial leakage
+- **OOD (out-of-distribution) split** fully held out for final evaluation
+- **Reproducibility** — Fixed random seeds, deterministic dataloader, versioned
+  configs
 
 ---
 
-## Deployment REST service for inference
+# Part 2: Technical Instructions
 
-# Training Data Contract (Frozen)
+## Setup
 
-## Input Artifact
+### Prerequisites
+
+- macOS (Apple Silicon) or Linux
+- No manual dependency installation required
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <repo-url>
+cd gfm-landcover-mapping
+
+# Run setup script (auto-installs pixi if needed)
+./setup.sh
+
+source $HOME/.bashrc
+
+# Activate the environment
+pixi shell
+
+cd gfm-landcover-mapping
+```
+
+The `setup.sh` script:
+
+- Detects your platform (macOS/Linux)
+- Installs [pixi](https://prefix.dev/) package manager if missing
+- Installs all dependencies (PyTorch, rasterio, GDAL, etc.)
+- Verifies the installation
+
+### Platform Support
+
+| Platform              | PyTorch Backend | GPU Support   |
+| --------------------- | --------------- | ------------- |
+| macOS (Apple Silicon) | MPS             | ✅ Apple GPU  |
+| Linux                 | CUDA 12.x       | ✅ NVIDIA GPU |
+
+---
+
+## Train
+
+### Pull Training Data
+
+All data is managed with DVC, stored in S3 compatible storage (R2 Cloudflare),
+and pulled on training start
+
+**Required files:**
+
+- `data/index/dataset_index_with_split.csv` — patch index with train/val/test
+  splits
+- `data/stats/norm_stats.json` — normalization statistics
+- `data/patches/` — preprocessed image patches
+
+### Training Commands
+
+```bash
+# Train with default config
+python run.py train
+
+# Train with custom run ID
+python run.py train run_id=my-experiment
+
+# Train with Hydra config overrides
+python run.py train trainer.max_epochs=100 data.batch_size=64
+
+# Debug training (small subset, fast iteration)
+python run.py debug trainer.max_epochs=10 data.num_workers=0 data.batch_size=10
+```
+
+### Run Outputs
+
+Each run creates `runs/<run_id>/`:
+
+```
+runs/<run_id>/
+├── artifacts
+│   ├── lineage.json
+│   └── plots
+│       ├── train_loss.png
+│       ├── val_loss.png
+│       └── val_miou.png
+├── checkpoints
+│   ├── best.ckpt
+│   └── last.ckpt
+├── config
+│   ├── config.yaml
+│   └── overrides.txt
+├── export
+│   ├── inference_config.yaml
+│   ├── model.onnx
+│   ├── model.onnx.data
+│   └── norm_stats.json
+└── logs
+    ├── hparams.yaml
+    ├── hydra.log
+    └── metrics.csv
+```
+
+### Logging
+
+- **CSV Logger**: Metrics saved to `runs/<run_id>/logs/metrics.csv`
+- **MLflow** (optional): Enable with `logging.mlflow.enabled=true`
+
+### Configuration
+
+Override any config value via CLI:
+
+```bash
+python run.py train trainer.max_epochs=50 data.batch_size=16 module.lr=1e-4
+```
+
+Key config files:
+
+- `configs/training.yaml` — Main training config
+- `configs/training/data.yaml` — Dataset paths, batch size
+- `configs/training/trainer.yaml` — PyTorch Lightning trainer
+- `configs/model/unet_baseline.yaml` — UNet architecture
+
+---
+
+## Production (Export)
+
+### Export Model
+
+Export a trained model to ONNX:
+
+```bash
+# Export best checkpoint (default)
+python run.py export <run_id>
+
+# Export last checkpoint
+python run.py export <run_id> export.checkpoint=last
+```
+
+Example:
+
+```bash
+python run.py export lcseg-20260107-160706-c2b5c83
+```
+
+Exports are saved to `runs/<run_id>/export/`.
+
+### Using Pre-trained Models
+
+Pull an example trained model from DVC:
+
+```bash
+dvc pull runs/lcseg-20260107-160706-c2b5c83.dvc
+```
+
+## Inference
+
+The inference server is built with [FastAPI](https://fastapi.tiangolo.com/) and
+provides a REST API for land-cover segmentation predictions. It operates on a
+**catalog of tiles** organized by country.
+
+**Interactive API Documentation** (after starting server):
+
+- Swagger UI: `http://{host}:{port}/docs`
+- ReDoc: `http://{host}:{port}/redoc`
+
+Default: `http://0.0.0.0:8000/docs` (configurable via `server.host` and
+`server.port`)
+
+### Pull Inference Data (Optional)
+
+Data for inference is pulled from DVC on the inference server startup
+
+```bash
+dvc pull data/inference.dvc
+```
+
+This downloads pre-processed tiles organized by country:
+
+```
+data/inference/
+├── imagery/
+│   ├── DEU/              # Germany
+│   │   ├── <tile_hash>/
+│   │   │   └── spectral.tif
+│   │   └── ...
+│   └── NLD/              # Netherlands
+│       └── ...
+└── labels/
+    ├── DEU/
+    │   ├── <tile_hash>/
+    │   │   └── labels.tif
+    │   └── ...
+    └── NLD/
+        └── ...
+```
+
+### Start Inference Server
+
+```bash
+# Using a local ONNX model
+python run.py serve model.local.onnx_path=runs/lcseg-20260107-160706-c2b5c83/export/model.onnx
+
+# Using an ONNX model from MLFlow
+python run.py serve \
+  model.source=mlflow \
+  model.mlflow.tracking_uri=<mlflow tracking_uri> \
+  'model.mlflow.model_uri=runs:/<mlflow run id>/export'
+
+# Custom port
+python run.py serve model.local.onnx_path=runs/<run_id>/export/model.onnx server.port=8080
+
+# With GPU inference (Linux)
+python run.py serve model.local.onnx_path=runs/<run_id>/export/model.onnx \
+    'runtime.providers=["CUDAExecutionProvider","CPUExecutionProvider"]'
+```
+
+### Inference Workflow
+
+The inference workflow follows these steps:
+
+```
+1. List Countries → 2. Select Country → 3. List Tiles → 4. Select Tile → 5. Run Inference
+```
+
+#### Step 1: List Available Countries
+
+```bash
+curl http://localhost:8000/countries
+```
+
+Response:
+
+```json
+{
+  "countries": ["DEU", "NLD", "PRT"]
+}
+```
+
+#### Step 2: List Tiles for a Country
+
+```bash
+curl http://localhost:8000/tiles?country=DEU
+```
+
+Response:
+
+```json
+{
+  "country": "DEU",
+  "tiles": ["a1b2c3d4", "e5f6g7h8", ...]
+}
+```
+
+#### Step 3: Get Tile Metadata (Optional)
+
+```bash
+curl http://localhost:8000/tiles/DEU/a1b2c3d4/meta
+```
+
+Response:
+
+```json
+{
+  "tile_id": "a1b2c3d4",
+  "country": "DEU",
+  "width": 10980,
+  "height": 10980,
+  "crs": "EPSG:32632",
+  "bounds": [300000.0, 5790240.0, 409800.0, 5900040.0],
+  "band_count": 4
+}
+```
+
+#### Step 4: Run Inference
+
+Send a POST request to `/infer` with a window specification:
+
+```bash
+curl -X 'POST' \
+  'http://127.0.0.1:8000/infer' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "country": "PRT",
+  "tile_id": "ec3f9378e4aa45dd3b65e358225fc47f15b13dcbc7b7ad59eebb1ff2d3320f67",
+  "row_off": 0,
+  "col_off": 0,
+  "height": 512,
+  "width": 512
+}' --output result.zip
+```
+
+**Understanding the Window Parameters:**
+
+Tiles are large raster images (e.g., 10980×10980 pixels for Sentinel-2). To run
+inference, you select a **window** (rectangular region) within the tile:
+
+```
+┌─────────────────────────────────────┐
+│ Tile (10980 × 10980 pixels)         │
+│                                     │
+│    col_off                          │
+│    ↓                                │
+│    ┌─────────────┐ ← row_off        │
+│    │             │                  │
+│    │   Window    │ height           │
+│    │             │                  │
+│    └─────────────┘                  │
+│         width                       │
+└─────────────────────────────────────┘
+```
+
+- **`row_off`** — Vertical offset from top-left corner of tile (in pixels)
+- **`col_off`** — Horizontal offset from top-left corner of tile (in pixels)
+- **`height`**, **`width`** — Size of the window to extract and process
+
+The window is then processed using a **sliding window** approach with patches:
+
+- **`patch_size`** — Size of patches fed to the model (default: 256×256,
+  matching training)
+- **`stride`** — Step size between patches (default: same as patch_size, no
+  overlap)
+
+For windows larger than `patch_size`, the server automatically tiles the window
+into patches, runs inference on each, and stitches results.
+
+**Request Parameters:**
+
+| Parameter         | Type   | Default  | Description                                              |
+| ----------------- | ------ | -------- | -------------------------------------------------------- |
+| `country`         | string | required | Country code (e.g., "DEU")                               |
+| `tile_id`         | string | required | Tile identifier (hash)                                   |
+| `row_off`         | int    | 0        | Row offset from top-left of tile (pixels)                |
+| `col_off`         | int    | 0        | Column offset from top-left of tile (pixels)             |
+| `height`          | int    | 256      | Window height (pixels)                                   |
+| `width`           | int    | 256      | Window width (pixels)                                    |
+| `patch_size`      | int    | 256      | Size of patches for model inference                      |
+| `stride`          | int    | 256      | Stride for sliding window (use < patch_size for overlap) |
+| `batch_size`      | int    | config   | Number of patches per batch                              |
+| `include_pred`    | bool   | true     | Include prediction PNG                                   |
+| `include_label`   | bool   | true     | Include ground-truth PNG                                 |
+| `include_compare` | bool   | true     | Include side-by-side comparison                          |
+
+**Response:**
+
+Returns a ZIP file containing:
+
+- `pred.png` — Predicted land-cover map (color-coded)
+- `label.png` — Ground truth labels (if available)
+- `compare.png` — Side-by-side comparison
+- `stats.json` — Inference statistics and class histograms
+
+Example `stats.json`:
+
+```json
+{
+  "inference_id": "infer-20260107-224530-abc123",
+  "timings": {
+    "total": 1.234,
+    "preprocess": 0.123,
+    "inference": 0.890,
+    "postprocess": 0.221
+  },
+  "window_info": {
+    "row_off": 0,
+    "col_off": 0,
+    "height": 512,
+    "width": 512,
+    "actual_height": 512,
+    "actual_width": 512
+  },
+  "pred_histogram": [
+    {"class_id": 10, "class_name": "Tree cover", "pixel_count": 65536, "fraction": 0.25},
+    {"class_id": 40, "class_name": "Cropland", "pixel_count": 131072, "fraction": 0.50},
+    ...
+  ],
+  "label_histogram": [...]
+}
+```
+
+### API Endpoints Summary
+
+| Method | Endpoint                          | Description               |
+| ------ | --------------------------------- | ------------------------- |
+| GET    | `/health`                         | Health check              |
+| GET    | `/model`                          | Model information         |
+| GET    | `/countries`                      | List available countries  |
+| GET    | `/tiles?country={code}`           | List tiles for a country  |
+| GET    | `/tiles/{country}/{tile_id}/meta` | Get tile metadata         |
+| POST   | `/infer`                          | Run inference on a window |
+
+### Inference Configuration
+
+Key config file: `configs/inference.yaml`
+
+| Config                       | Description                             |
+| ---------------------------- | --------------------------------------- |
+| `model.source`               | `local` or `mlflow`                     |
+| `model.mlflow.tracking_uri`  | MLFlow tracking URI                     |
+| `model.local.onnx_path`      | Path to ONNX model                      |
+| `data.imagery_root`          | Root directory for imagery tiles        |
+| `data.labels_root`           | Root directory for label tiles          |
+| `data.allowed_countries`     | Filter to specific countries (optional) |
+| `server.host`, `server.port` | Server binding                          |
+| `runtime.providers`          | ONNX Runtime execution providers        |
+
+---
+
+# Appendix
+
+## Training Data Contract
+
+### Input Artifact
 
 - CSV: `dataset_index_with_split.csv`
 - One row = one training sample (patch)
 - File is **read-only and immutable**
 
----
+### Required Columns
 
-## Required Columns & Semantics
+| Column          | Description                                   |
+| --------------- | --------------------------------------------- |
+| `patch_id`      | Unique sample ID                              |
+| `tile_id`       | Parent Sentinel-2 tile                        |
+| `group_id`      | Grouping key (no group spans multiple splits) |
+| `split`         | One of: `train`, `val`, `test`, `ood`         |
+| `spectral_path` | Path to 4-band S2 patch (B02, B03, B04, B08)  |
+| `label_path`    | Path to ESA WorldCover labels                 |
+| `cloud_frac`    | Cloud fraction (filtering threshold)          |
 
-### Identity & Leakage Control
+### Tensor Contract
 
-- `patch_id`: unique sample ID
-- `tile_id`: parent Sentinel-2 tile
-- `group_id`: grouping key **Invariant:** no `group_id` appears in more than one
-  split
+**Input:**
 
-### Split Assignment (Authoritative)
+- `x`: `FloatTensor [4, 256, 256]` — Channels: B02, B03, B04, B08
+- Normalized using frozen train-split statistics
 
-- `split ∈ {train, val, test, ood}`
+**Target:**
+
+- `y`: `LongTensor [256, 256]` — Integer WorldCover class IDs
+
+### Split Rules
+
 - Splits are **pre-assigned and frozen**
-- **OOD is fully held out**
+- **OOD split is fully held out** — not used for normalization, class weights,
+  or early stopping
+- Filtering: `cloud_frac ≤ 0.20` for train/val
 
-**OOD MUST NOT be used for:**
+## Project Structure
 
-- normalization statistics
-- class weights
-- early stopping
-- threshold tuning
-
----
-
-### Data Paths
-
-- `spectral_path`: 4-band S2 patch (B02, B03, B04, B08)
-- `label_path`: pixel-aligned ESA WorldCover labels
-- Paths are relative and must exist
-
----
-
-### Quality & Filtering
-
-- `cloud_frac`: primary quality signal
-- `valid_frac`: always `1.0` (ignored)
-- `is_usable`: ignored
-
-**Filtering (Dataset-level only):**
-
-- train / val: `cloud_frac ≤ 0.20`
-- test: fixed per experiment
-- ood: **no filtering**
-
-CSV must **never** be modified by filtering.
-
----
-
-### Diagnostic-Only Metadata (NOT used in training)
-
-- Geometry: `row_off`, `col_off`, `patch_size`, `stride`, `center_x`, `center_y`
-- Labels: `dominant_class`, `dominant_frac`, `unique_classes`
-- Acquisition: `acq_start`, `acq_end`, `mosaic_method`
-- Region: `country`, `aoi_id`
-
----
-
-## Tensor Contract
-
-**Input**
-
-- `x`: `FloatTensor [4, 256, 256]`
-- Channels: `[B02, B03, B04, B08]`
-- Normalized using frozen IID-train stats
-
-**Target**
-
-- `y`: `LongTensor [256, 256]`
-- Integer WorldCover class IDs
-
-**Invariant**
-
-- `x` and `y` are pixel-aligned
-
----
-
-## Non-Assumptions
-
-Training code must NOT assume:
-
-- spatial adjacency
-- class balance
-- country balance
-- cloud-free OOD data
-- usability from `is_usable`
-
----
-
-## Definition of Done
-
-- Contract documented
-- Dataset uses only allowed fields
-- Runtime assertions enforce invariants
-- No implicit data-dependent logic
+```
+├── run.py                     # CLI entrypoint (train, debug, export, serve)
+├── setup.sh                   # Environment setup script
+├── pixi.toml                  # Pixi package configuration
+├── dvc.yaml                   # DVC pipeline definition
+├── configs/                   # Hydra configuration
+├── data_preparation/          # Data pipeline modules
+├── landcover/                 # Training code
+│   ├── datasets/              # DataModule, Dataset, transforms
+│   ├── models/                # UNet baseline
+│   ├── training/              # Training loop
+│   └── callbacks/             # Custom callbacks
+├── inference/                 # Inference server
+├── runs/                      # Training run outputs
+└── data/                      # Dataset (DVC-managed)
+```
