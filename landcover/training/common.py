@@ -227,7 +227,7 @@ def export_model(
 
     from omegaconf import OmegaConf
 
-    export_cfg = dict(cfg.trainer).get("export", {})
+    export_cfg = cfg.export
     tensorrt_cfg = export_cfg.get("tensorrt", {})
 
     artifacts_dir = Path(export_dir)
