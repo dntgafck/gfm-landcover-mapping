@@ -16,11 +16,12 @@ baselines (U-Net).
 
 ## 🛠 Tech Stack & Environment
 
-- **Dependency Management (uv + conda)**: Compiled packages (GDAL, rasterio,
-  pytorch) are managed via **conda** in the `gfm` environment. Python packages
-  are managed via **uv** using `pyproject.toml`.
-  - Activate environment: `conda activate gfm`
-  - Install/sync Python packages: `uv pip install -e .`
+- **Dependency Management (Pixi)**: All dependencies (Python and system packages
+  like GDAL, CUDA) are managed via **pixi** in `pixi.toml`.
+  - **Install/Update**: `pixi install`
+  - **Activate Shell**: `pixi shell`
+  - **Run Tasks**: `pixi run <task>` (e.g., `pixi run test`,
+    `pixi run lint-all`)
 - **Data Management (DVC)**: Data versioning and pipelines are managed with
   **DVC** (defined in `dvc.yaml`). Execute all data steps through DVC (e.g.,
   `dvc repro`).
@@ -31,19 +32,13 @@ baselines (U-Net).
 
 ### Environment Reproducibility
 
-- **`pyproject.toml`**: Single source of truth for Python dependencies with
-  version ranges. Portable across platforms.
-- **Freeze on remote machine**: Lock files should be generated on the remote GPU
-  machine (linux-64) since that's the production training environment.
-
-  ```bash
-  # On remote GPU machine after setup:
-  conda env export > environment.lock.yml
-  uv pip freeze > requirements.lock.txt
-  ```
-
-- **Local Mac environment**: Different platform (osx-arm64), useful for dev but
-  not for production lockfiles.
+- **`pixi.lock`**: Single source of truth for all dependencies (conda + pypi)
+  across supported platforms (`osx-arm64`, `linux-64`).
+- **No manual freeze**: Do not manually export conda environments or pip
+  requirements. Rely on `pixi.lock` which is updated via `pixi install` or
+  `pixi add`.
+- **Remote Machine**: The remote training environment (linux-64) should be
+  provisioned using the same `pixi.lock` to ensure exact reproducibility.
 
 ---
 
@@ -78,10 +73,9 @@ U-Net Baseline"] J --> K["ONNX Export & Metadata"] ```
 - **Requirement**: Before completing any task with code changes, you **must**
   resolve all linter errors.
 - **How to run**:
-  - `pre-commit run --all-files`: Runs on **all files** in the repository. Use
+  - `pixi run lint-all`: Runs pre-commit on **all files** in the repository. Use
     this to ensure everything is clean before finishing.
-  - `pre-commit run`: Default `pre-commit` behavior ONLY tracks **staged files**
-    (files in the git index).
+  - `pixi run pre-commit run`: Default `pre-commit` behavior ONLY tracks **staged files**.
 
 ### 2. Data Contract Adherence
 

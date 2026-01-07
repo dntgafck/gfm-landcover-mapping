@@ -9,9 +9,3 @@ deterministic: false
 # Note: run_dir is created programmatically with structure:
 #   runs/{run_id}/config/, logs/, checkpoints/, artifacts/, export/
 runs_root: "runs"
-
-# Export configuration (paths set relative to run_dir/export/)
-export:
-  enabled: true
-  onnx_filename: "model.onnx"
-  checkpoint: "best" # "best" or "last"

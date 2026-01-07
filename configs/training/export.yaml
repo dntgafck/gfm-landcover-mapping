@@ -4,6 +4,7 @@
 enabled: true
 onnx_filename: "model.onnx"
 checkpoint: "best" # "best" or "last"
+opset_version: null # ONNX opset version (null = auto-select, e.g., 17, 18)
 
 # TensorRT conversion configuration
 tensorrt:

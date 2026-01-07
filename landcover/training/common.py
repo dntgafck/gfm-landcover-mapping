@@ -253,15 +253,28 @@ def export_model(
         onnx_path = artifacts_dir / onnx_filename
         dummy_input = torch.randn(1, cfg.model.in_channels, 256, 256).cpu()
 
+        # Prepare export arguments
+        export_kwargs = {
+            "export_params": True,
+            "do_constant_folding": True,
+            "input_names": ["input"],
+            "output_names": ["output"],
+        }
+
+        # Add opset_version only if specified in config
+        opset_version = export_cfg.get("opset_version")
+        if opset_version is not None:
+            export_kwargs["opset_version"] = opset_version
+            logger.info(f"Using ONNX opset version: {opset_version}")
+        else:
+            logger.info("Using auto-selected ONNX opset version")
+
         with torch.no_grad():
-            export_module.to_onnx(
+            torch.onnx.export(
+                export_module,
+                dummy_input,
                 onnx_path,
-                input_sample=dummy_input,
-                export_params=True,
-                opset_version=17,
-                do_constant_folding=True,
-                input_names=["input"],
-                output_names=["output"],
+                **export_kwargs,
             )
         logger.info(f"Model exported to {onnx_path}")
     except Exception as e:
