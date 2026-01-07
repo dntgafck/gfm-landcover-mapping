@@ -188,18 +188,6 @@ echo ""
 echo "Running: conda run -n $ENV_NAME $UV_INSTALL_CMD"
 conda run -n "$ENV_NAME" bash -c "$UV_INSTALL_CMD"
 
-# --- TENSORRT INSTALLATION (Linux only) ---
-if [[ "$PLATFORM" == "linux" && "$INSTALL_TRAIN" == true ]]; then
-    echo ""
-    echo "=== Installing TensorRT (Linux-only) ==="
-    echo "Installing tensorrt and torch-tensorrt via uv..."
-    conda run -n "$ENV_NAME" uv pip install tensorrt torch-tensorrt --no-deps || {
-        echo "⚠ TensorRT installation failed. This is optional for GPU inference optimization."
-        echo "  You can install it manually later if needed:"
-        echo "  conda activate gfm && uv pip install tensorrt torch-tensorrt"
-    }
-fi
-
 # --- VERIFICATION ---
 echo ""
 echo "=== Verifying installation ==="

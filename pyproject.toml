@@ -42,11 +42,11 @@ train = [
 ]
 
 # GPU training dependencies (Linux-only)
-# Note: TensorRT and torch-tensorrt should be installed separately on Linux
-# due to platform-specific build requirements. See README for installation.
 train-gpu = [
     "onnx",
     "onnxscript>=0.1.0",
+    "tensorrt; sys_platform == 'linux'",
+    "torch-tensorrt; sys_platform == 'linux'",
 ]
 
 [build-system]
