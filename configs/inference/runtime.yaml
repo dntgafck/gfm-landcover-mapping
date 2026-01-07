@@ -1,0 +1,13 @@
+# Inference runtime settings
+patch_size: 256
+stride: 256 # Set < patch_size for overlap
+batch_size: 8
+
+# ONNX Runtime execution providers (priority order)
+# Common options:
+#   CPU: ["CPUExecutionProvider"]
+#   CUDA: ["CUDAExecutionProvider", "CPUExecutionProvider"]
+#   TensorRT: ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"]
+#   CoreML (macOS): ["CoreMLExecutionProvider", "CPUExecutionProvider"]
+providers:
+  - "CPUExecutionProvider"

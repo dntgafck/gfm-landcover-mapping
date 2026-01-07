@@ -1,0 +1,8 @@
+# Inference configuration - loads inference-related configs only
+defaults:
+  - inference/model@model
+  - inference/data@data
+  - inference/sync@sync
+  - inference/runtime@runtime
+  - inference/server@server
+  - _self_

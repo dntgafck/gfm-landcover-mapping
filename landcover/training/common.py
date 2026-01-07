@@ -173,6 +173,20 @@ def mirror_to_mlflow(
         )
         logger.info("Mirrored lineage.json to MLflow")
 
+    # Mirror export artifacts (ONNX model, norm_stats, inference_config)
+    if mlflow_cfg.get("mirror_export", True):
+        export_dir = run_paths["export"]
+        if export_dir.exists():
+            artifacts = [f for f in export_dir.glob("*") if f.is_file()]
+            for artifact_file in artifacts:
+                mlflow_logger.experiment.log_artifact(
+                    run_id=mlflow_logger.run_id,
+                    local_path=str(artifact_file),
+                    artifact_path="export",
+                )
+            if artifacts:
+                logger.info(f"Mirrored {len(artifacts)} export artifacts to MLflow")
+
 
 def resolve_checkpoint_path(run_dir: Path, checkpoint_type: str = "best") -> Path:
     """Resolve checkpoint path based on run_dir and checkpoint type.
@@ -251,12 +265,16 @@ def export_model(
         onnx_path = artifacts_dir / onnx_filename
         dummy_input = torch.randn(1, cfg.model.in_channels, 256, 256).cpu()
 
-        # Prepare export arguments
+        # Prepare export arguments with dynamic axes for flexible inference
         export_kwargs = {
             "export_params": True,
             "do_constant_folding": True,
             "input_names": ["input"],
             "output_names": ["output"],
+            "dynamic_axes": {
+                "input": {0: "batch", 2: "height", 3: "width"},
+                "output": {0: "batch", 2: "height", 3: "width"},
+            },
         }
 
         # Add opset_version only if specified in config

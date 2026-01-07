@@ -1,0 +1,6 @@
+# DVC sync settings for inference data
+enabled: true
+
+# Paths to pull at startup (can be .dvc files or stage names)
+pull_targets:
+  - "data/inference.dvc"

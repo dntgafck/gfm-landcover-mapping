@@ -1,0 +1,26 @@
+# ONNX model source configuration
+source: "local" # "mlflow" or "local"
+
+# Normalization stats (fallback if not in MLflow artifacts)
+norm_stats_path: "data/stats/norm_stats.json"
+
+# Band ordering for inference
+bands_order:
+  - "B02"
+  - "B03"
+  - "B04"
+  - "B08"
+
+# Number of output classes (ESA WorldCover)
+num_classes: 11
+
+# MLflow settings (when source=mlflow)
+mlflow:
+  tracking_uri: "http://127.0.0.1:8080"
+  model_uri: "models:/landcover/Production" # or runs:/<run_id>/export/model.onnx
+  artifact_subpath: "model.onnx" # path within run artifacts
+  cache_dir: ".cache/mlflow_models"
+
+# Local settings (when source=local)
+local:
+  onnx_path: null # Must be set via override, e.g., runs/<run_id>/export/model.onnx

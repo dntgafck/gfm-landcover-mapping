@@ -71,6 +71,13 @@ mlflow = "*"
 onnx = "*"
 onnxscript = ">=0.1.0"
 
+# Inference server
+fastapi = ">=0.115.0"
+uvicorn = ">=0.34.0"
+onnxruntime = ">=1.19.0"
+python-multipart = ">=0.0.20"
+pillow = ">=10.0.0"
+
 [feature.dev.pypi-dependencies]
 # Development tools
 pre-commit = "*"

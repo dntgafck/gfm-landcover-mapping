@@ -7,4 +7,5 @@ mlflow:
   # Mirror artifacts from run_dir to MLflow
   mirror_config: true
   mirror_plots: true
-  mirror_checkpoint: false # Can be large, disabled by default
+  mirror_checkpoint: true # Can be large, disabled by default
+  mirror_export: true # Mirror ONNX model and inference artifacts

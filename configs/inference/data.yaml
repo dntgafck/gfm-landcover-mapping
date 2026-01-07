@@ -1,0 +1,9 @@
+# Inference data paths
+imagery_root: "data/inference/imagery"
+labels_root: "data/inference/labels"
+
+# Optional: restrict to specific countries (null = all discovered)
+allowed_countries: null
+
+# Glob pattern for tile discovery
+tile_glob: "*.tif"
