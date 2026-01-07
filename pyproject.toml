@@ -7,30 +7,45 @@ description = "Land-cover mapping with foundation models"
 readme = "README.md"
 requires-python = ">=3.11"
 
-# All dependencies in one environment
+# Base runtime dependencies
 # Note: GDAL, rasterio, fiona, pytorch, torchvision must be installed via conda
 dependencies = [
-    # Core
+    # Core libraries
     "sentinelhub>=3.11.3,<4",
     "requests",
     "pandas>=2.3.3,<3",
     "matplotlib>=3.10.8,<4",
     "geopandas>=1.1.2,<2",
     "boto3",
-    # ML
+    # ML framework
     "hydra-core>=1.3.2,<2",
     "pytorch-lightning>=2.6.0,<3",
     "torchmetrics>=1.8.2,<2",
-    "onnx",
-    "onnxscript>=0.1.0",
     "mlflow",
-    # Dev/notebook tools
+]
+
+[project.optional-dependencies]
+# Development tools
+dev = [
     "pre-commit",
     "pytest",
-    "dvc[s3]>=3.65.0,<4",
     "jupyterlab",
     "seaborn>=0.13.2,<0.14",
     "ipykernel",
+    "dvc[s3]>=3.65.0,<4",
+]
+
+# Training dependencies
+train = [
+    "onnx",
+    "onnxscript>=0.1.0",
+]
+
+# GPU training dependencies (Linux-only)
+# Note: tensorrt and torch-tensorrt are installed via conda on Linux
+train-gpu = [
+    "onnx",
+    "onnxscript>=0.1.0",
 ]
 
 [build-system]

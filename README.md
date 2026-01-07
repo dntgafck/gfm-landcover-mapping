@@ -128,7 +128,145 @@ labeled dataset. Training includes:
 The final comparison will quantify improvements in accuracy, label-efficiency,
 and cross-region robustness.
 
-Deployment REST service for inference
+## Environment Setup
+
+This project uses **Conda for system/compiled dependencies** and **uv.lock for
+PyPI packages** to ensure reproducible environments across macOS and Linux.
+
+### Prerequisites
+
+- **Conda**: Install [Miniforge](https://github.com/conda-forge/miniforge)
+  (recommended) or Miniconda
+  - macOS: `brew install miniforge`
+  - Linux:
+    `curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh && bash Miniforge3-Linux-x86_64.sh`
+- **uv**: Fast Python package installer
+  - Install: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+### Setup Commands
+
+#### macOS Development Setup
+
+For local development on macOS (includes dev tools like Jupyter, pytest,
+pre-commit):
+
+```bash
+./scripts/setup_dev.sh
+conda activate gfm
+```
+
+Or using the base script with flags:
+
+```bash
+./scripts/setup_env.sh --dev
+conda activate gfm
+```
+
+#### Linux Training Setup
+
+For Linux training environments (includes training dependencies and GPU
+support):
+
+```bash
+# Standard setup (may update dependencies)
+./scripts/setup_train_linux.sh
+
+# Frozen setup (exact reproduction, recommended for remote training)
+./scripts/setup_train_linux.sh --frozen
+
+conda activate gfm
+```
+
+Or using the base script:
+
+```bash
+./scripts/setup_env.sh --train --frozen
+conda activate gfm
+```
+
+#### Advanced Options
+
+The base `setup_env.sh` script supports multiple flags:
+
+```bash
+# Flags:
+#   --dev              Install development dependencies
+#   --train            Install training dependencies (+ GPU on Linux)
+#   --refresh-conda    Force recreate conda environment from scratch
+#   --lock             Regenerate uv.lock from pyproject.toml
+#   --frozen           Frozen install (no dependency changes, for CI/remote)
+
+# Examples:
+./scripts/setup_env.sh --dev --train         # Dev + training
+./scripts/setup_env.sh --refresh-conda       # Fresh conda install
+./scripts/setup_env.sh --lock                # Update lockfile
+./scripts/setup_env.sh --train --frozen      # Reproducible remote training
+```
+
+### Architecture
+
+**Conda environments** (`env/environment.{macos,linux}.yml`):
+
+- Python 3.11
+- Geospatial libraries: GDAL, rasterio, fiona, proj, geos, pyproj, shapely
+- PyTorch with platform-specific optimizations:
+  - macOS: CPU/MPS support
+  - Linux: CUDA 12.1 support
+- Linux-only: TensorRT and torch-tensorrt for inference optimization
+
+**PyPI packages** (`uv.lock`):
+
+- Base runtime dependencies (PyTorch Lightning, Hydra, MLflow, etc.)
+- Optional dependency groups:
+  - `dev`: Development tools (pytest, Jupyter, pre-commit, DVC, etc.)
+  - `train`: Training utilities (ONNX export, etc.)
+  - `train-gpu`: GPU training utilities (Linux-only)
+
+### Remote Training Workflow
+
+For reproducible training on remote Linux machines:
+
+1. **Local**: Commit your code and `uv.lock` to git
+2. **Remote**: Clone repository
+3. **Remote**: Run frozen setup:
+   ```bash
+   ./scripts/setup_train_linux.sh --frozen
+   conda activate gfm
+   ```
+4. The `--frozen` flag ensures exact dependency reproduction without drift
+
+### Updating Dependencies
+
+To update the lockfile after modifying `pyproject.toml`:
+
+```bash
+./scripts/setup_env.sh --lock
+git add uv.lock
+git commit -m "Update dependencies"
+```
+
+### Troubleshooting
+
+**Conda environment conflicts:**
+
+```bash
+# Force refresh the conda environment
+./scripts/setup_env.sh --refresh-conda --dev
+```
+
+**Missing TensorRT (Linux):** TensorRT and torch-tensorrt are automatically
+installed via conda on Linux when using `--train`. If issues occur, the conda
+environment file can be updated.
+
+**Import errors after setup:** Ensure you've activated the environment:
+
+```bash
+conda activate gfm
+```
+
+---
+
+## Deployment REST service for inference
 
 # Training Data Contract (Frozen)
 
