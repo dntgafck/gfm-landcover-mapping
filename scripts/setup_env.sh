@@ -1,76 +1,39 @@
 #!/usr/bin/env bash
 # scripts/setup_env.sh
-# Idempotent environment setup for macOS and Linux
-# Uses Conda for system/compiled deps + uv.lock for PyPI packages
+# Idempotent environment setup using pixi for macOS and Linux
 #
-# Prerequisites: conda and uv must be installed.
+# Prerequisites: None - pixi will be installed automatically if missing
 #
 # Usage:
-#   ./scripts/setup_env.sh                    # Basic setup (base deps only)
-#   ./scripts/setup_env.sh --dev              # Setup with dev dependencies
-#   ./scripts/setup_env.sh --train            # Setup with training dependencies
-#   ./scripts/setup_env.sh --train --frozen   # Frozen install (no lock changes, for CI/remote)
-#   ./scripts/setup_env.sh --refresh-conda    # Force recreate conda env
-#   ./scripts/setup_env.sh --lock             # Regenerate uv.lock (deliberate action)
-#   ./scripts/setup_env.sh --activate         # Activate env after setup (requires sourcing)
-#
-# To activate the environment in your current shell after setup:
-#   source ./scripts/setup_env.sh --activate
+#   ./scripts/setup_env.sh           # Setup environment
+#   source ./scripts/setup_env.sh --activate    # Activate environment
 
 set -euo pipefail
 
-ENV_NAME="gfm"
-PYTHON_VERSION="3.11"
-
-# Default flags
-INSTALL_DEV=false
-INSTALL_TRAIN=false
-REFRESH_CONDA=false
-REGENERATE_LOCK=false
-FROZEN_INSTALL=false
 ACTIVATE_ENV=false
 
 # Parse arguments
 for arg in "$@"; do
     case $arg in
-        --dev)
-            INSTALL_DEV=true
-            ;;
-        --train)
-            INSTALL_TRAIN=true
-            ;;
-        --refresh-conda)
-            REFRESH_CONDA=true
-            ;;
-        --lock)
-            REGENERATE_LOCK=true
-            ;;
-        --frozen)
-            FROZEN_INSTALL=true
-            ;;
         --activate)
             ACTIVATE_ENV=true
             ;;
         *)
             echo "Unknown argument: $arg"
-            echo "Usage: $0 [--dev] [--train] [--refresh-conda] [--lock] [--frozen] [--activate]"
+            echo "Usage: $0 [--activate]"
             exit 1
             ;;
     esac
 done
 
-echo "=== GFM Environment Setup ==="
-echo "Environment: $ENV_NAME"
-echo "Python: $PYTHON_VERSION"
+echo "=== GFM Environment Setup with Pixi ==="
 
 # Detect platform
 if [[ "$(uname -s)" == "Linux" ]]; then
-    PLATFORM="linux"
-    CONDA_ENV_FILE="environment.linux.yml"
+    PLATFORM="linux-64"
     echo "Platform: Linux (CUDA support)"
 elif [[ "$(uname -s)" == "Darwin" ]]; then
-    PLATFORM="macos"
-    CONDA_ENV_FILE="environment.macos.yml"
+    PLATFORM="osx-arm64"
     echo "Platform: macOS (MPS support)"
 else
     echo "Error: Unsupported platform: $(uname -s)"
@@ -78,122 +41,66 @@ else
     exit 1
 fi
 
-# Display configuration
-echo ""
-echo "Configuration:"
-echo "  - Conda env file: $CONDA_ENV_FILE"
-echo "  - Install dev deps: $INSTALL_DEV"
-echo "  - Install train deps: $INSTALL_TRAIN"
-echo "  - Refresh conda: $REFRESH_CONDA"
-echo "  - Regenerate lock: $REGENERATE_LOCK"
-echo "  - Frozen install: $FROZEN_INSTALL"
-echo "  - Activate after setup: $ACTIVATE_ENV"
-echo ""
+# Check if pixi is installed
+if ! command -v pixi >/dev/null 2>&1; then
+    echo ""
+    echo "=== Pixi not found, installing... ==="
 
-# Check prerequisites
-if ! command -v conda >/dev/null 2>&1; then
-    echo "Error: conda not found. Please install miniconda/miniforge."
-    echo "  macOS: brew install miniforge"
-    echo "  Linux: curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh && bash Miniforge3-Linux-x86_64.sh"
-    exit 1
-fi
+    # Install pixi
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        # macOS - try brew first, fall back to curl
+        if command -v brew >/dev/null 2>&1; then
+            echo "Installing pixi via Homebrew..."
+            brew install pixi
+        else
+            echo "Installing pixi via curl..."
+            curl -fsSL https://pixi.sh/install.sh | bash
 
-if ! command -v uv >/dev/null 2>&1; then
-    echo "Error: uv not found. Install with:"
-    echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
-    exit 1
-fi
-
-# Check that conda env file exists
-if [[ ! -f "$CONDA_ENV_FILE" ]]; then
-    echo "Error: Conda environment file not found: $CONDA_ENV_FILE"
-    exit 1
-fi
-
-# --- CONDA ENVIRONMENT SETUP ---
-echo "=== Setting up Conda environment ==="
-
-if conda env list | grep -q "^${ENV_NAME} "; then
-    if [[ "$REFRESH_CONDA" == true ]]; then
-        echo "Removing existing environment for fresh install..."
-        conda env remove -n "$ENV_NAME" -y
-        echo "Creating conda environment from $CONDA_ENV_FILE..."
-        conda env create -f "$CONDA_ENV_FILE"
+            # Add pixi to PATH for this session
+            export PATH="$HOME/.pixi/bin:$PATH"
+        fi
     else
-        echo "Updating existing environment from $CONDA_ENV_FILE..."
-        conda env update -n "$ENV_NAME" -f "$CONDA_ENV_FILE" --prune
+        # Linux - use curl
+        echo "Installing pixi via curl..."
+        curl -fsSL https://pixi.sh/install.sh | bash
+
+        # Add pixi to PATH for this session
+        export PATH="$HOME/.pixi/bin:$PATH"
     fi
-else
-    echo "Creating conda environment from $CONDA_ENV_FILE..."
-    conda env create -f "$CONDA_ENV_FILE"
-fi
 
-# --- UV LOCK MANAGEMENT ---
-echo ""
-echo "=== Managing uv.lock ==="
-
-if [[ "$REGENERATE_LOCK" == true ]]; then
-    echo "Regenerating uv.lock from pyproject.toml..."
-    conda run -n "$ENV_NAME" uv lock --upgrade
-    echo "✓ uv.lock regenerated"
-elif [[ ! -f "uv.lock" ]]; then
-    echo "uv.lock not found, generating..."
-    conda run -n "$ENV_NAME" uv lock
-    echo "✓ uv.lock created"
-else
-    echo "Using existing uv.lock"
-fi
-
-# --- PYTHON DEPENDENCIES INSTALLATION ---
-echo ""
-echo "=== Installing Python dependencies ==="
-
-# Build uv pip install command with appropriate flags
-# Use --system to install into the conda environment, not a .venv
-UV_INSTALL_CMD="uv pip install --system -e ."
-
-# Add optional dependency groups
-EXTRA_GROUPS=""
-if [[ "$INSTALL_DEV" == true ]]; then
-    EXTRA_GROUPS="${EXTRA_GROUPS}dev,"
-    echo "Including: dev dependencies"
-fi
-
-if [[ "$INSTALL_TRAIN" == true ]]; then
-    EXTRA_GROUPS="${EXTRA_GROUPS}train,"
-    echo "Including: train dependencies"
-
-    # On Linux, also include train-gpu extras
-    if [[ "$PLATFORM" == "linux" ]]; then
-        EXTRA_GROUPS="${EXTRA_GROUPS}train-gpu,"
-        echo "Including: train-gpu dependencies (Linux)"
+    # Verify installation
+    if ! command -v pixi >/dev/null 2>&1; then
+        echo "Error: pixi installation failed"
+        echo "Please install manually: https://prefix.dev/docs/pixi/overview"
+        exit 1
     fi
+
+    echo "✓ Pixi installed successfully"
 fi
 
-# Add extras to command if any were specified
-if [[ -n "$EXTRA_GROUPS" ]]; then
-    # Remove trailing comma and format as extras
-    EXTRA_GROUPS="${EXTRA_GROUPS%,}"
-    UV_INSTALL_CMD="uv pip install --system -e '.[$EXTRA_GROUPS]'"
-fi
-
-if [[ "$FROZEN_INSTALL" == true ]]; then
-    echo "Mode: FROZEN (using exact versions from uv.lock)"
-else
-    echo "Mode: Standard"
-fi
-
-# Run uv pip install in the conda environment
+# Show pixi version
+PIXI_VERSION=$(pixi --version)
+echo "Using: $PIXI_VERSION"
 echo ""
-echo "Running: conda run -n $ENV_NAME $UV_INSTALL_CMD"
-conda run -n "$ENV_NAME" bash -c "$UV_INSTALL_CMD"
 
-# --- VERIFICATION ---
+# --- PIXI ENVIRONMENT SETUP ---
+echo "=== Installing dependencies with pixi ==="
+
+# Run pixi install for the default environment only
+# Use --no-lockfile-update if lockfile exists to avoid cross-platform resolution
+if [[ -f "pixi.lock" ]]; then
+    echo "Using existing pixi.lock (no update)"
+    pixi install -e default --frozen
+else
+    echo "Generating pixi.lock for current platform"
+    pixi install -e default
+fi
+
 echo ""
 echo "=== Verifying installation ==="
 
-# Run verification in the conda environment
-conda run -n "$ENV_NAME" python -c "
+# Run verification in the pixi environment
+pixi run python -c "
 import sys
 print(f'Python: {sys.version}')
 print()
@@ -232,9 +139,16 @@ except ImportError as e:
     print(f'✗ GeoPandas import failed: {e}')
     sys.exit(1)
 
+try:
+    import fire
+    print(f'✓ Fire: {fire.__version__}')
+except ImportError as e:
+    print(f'✗ Fire import failed: {e}')
+    sys.exit(1)
+
 # Check optional TensorRT (Linux only)
 import platform
-if platform.system() == 'Linux' and '$INSTALL_TRAIN' == 'true':
+if platform.system() == 'Linux':
     try:
         import tensorrt
         print(f'✓ TensorRT: {tensorrt.__version__}')
@@ -258,25 +172,26 @@ if [[ $? -eq 0 ]]; then
 
     # Activate the environment if requested
     if [[ "$ACTIVATE_ENV" == true ]]; then
-        echo "Activating conda environment: $ENV_NAME"
-        # Initialize conda for the current shell
-        eval "$(conda shell.bash hook)"
-        conda activate "$ENV_NAME"
-        echo "✓ Environment '$ENV_NAME' is now active"
-        echo ""
+        echo "Activating pixi environment..."
+        # This only works if the script is sourced
+        if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+            echo "Warning: Script must be sourced to activate environment"
+            echo "Run: source ./scripts/setup_env.sh --activate"
+        else
+            eval "$(pixi shell-hook)"
+            echo "✓ Pixi environment is now active"
+            echo ""
+        fi
     else
         echo "Activate the environment with:"
-        echo "  conda activate $ENV_NAME"
+        echo "  pixi shell"
         echo ""
-        echo "Or re-run this script with --activate (must be sourced):"
+        echo "Or run commands directly with:"
+        echo "  pixi run <command>"
+        echo ""
+        echo "Or source this script:"
         echo "  source ./scripts/setup_env.sh --activate"
         echo ""
-    fi
-
-    if [[ "$INSTALL_DEV" == false && "$INSTALL_TRAIN" == false ]]; then
-        echo "To install additional dependencies:"
-        echo "  ./scripts/setup_env.sh --dev          # Development tools"
-        echo "  ./scripts/setup_env.sh --train        # Training dependencies"
     fi
 else
     echo ""

@@ -1,0 +1,112 @@
+[workspace]
+authors = ["Anton Ustinov <ustinov.ant@gmail.com>"]
+channels = ["conda-forge"]
+name = "gfm-landcover-mapping"
+platforms = ["osx-arm64", "linux-64"]
+version = "0.1.0"
+
+# -----------------------------
+# Shared tasks (available in any environment that includes the "dev" feature)
+# -----------------------------
+[feature.dev.tasks]
+lint-all = "pre-commit run --all-files"
+test = "pytest"
+lab = "jupyter lab"
+
+# -----------------------------
+# Feature: core (cross-platform)
+# -----------------------------
+[feature.core.dependencies]
+python = "3.11.*"
+pip = ">=25"
+
+# Compiled geospatial stack (keep in conda)
+gdal = "*"
+rasterio = "*"
+fiona = "*"
+proj = "*"
+geos = "*"
+pyproj = "*"
+shapely = "*"
+
+# Numerical stack
+numpy = ">=2.4.0,<3"
+
+[feature.core.pypi-dependencies]
+# Core libraries
+sentinelhub = ">=3.11.3, <4"
+requests = "*"
+pandas = ">=2.3.3, <3"
+matplotlib = ">=3.10.8, <4"
+geopandas = ">=1.1.2, <2"
+boto3 = "*"
+
+# ML framework (platform-neutral pieces)
+fire = "*"
+hydra-core = ">=1.3.2, <2"
+pytorch-lightning = ">=2.6.0, <3"
+torchmetrics = ">=1.8.2, <2"
+mlflow = "*"
+
+# Data management
+dvc = { version = ">=3.65.0, <4", extras = ["s3"] }
+
+# Training dependencies (portable)
+onnx = "*"
+onnxscript = ">=0.1.0"
+
+# -----------------------------
+# Feature: dev (tools you want locally; not required for training runtime)
+# -----------------------------
+[feature.dev.dependencies]
+ipykernel = "*"
+jupyterlab = "*"
+
+[feature.dev.pypi-dependencies]
+pre-commit = "*"
+pytest = "*"
+seaborn = ">=0.13.2, <0.14"
+
+# -----------------------------
+# Feature: torch-macos (macOS arm64 only)
+# -----------------------------
+[feature.torch-macos]
+platforms = ["osx-arm64"]
+
+[feature.torch-macos.dependencies]
+pytorch = ">=2.8,<3"
+torchvision = ">=0.24,<0.25"
+
+# -----------------------------
+# Feature: torch-linux-gpu (Linux GPU only; explicit opt-in)
+# -----------------------------
+[feature.torch-linux-gpu]
+platforms = ["linux-64"]
+
+[feature.torch-linux-gpu.system-requirements]
+cuda = "12.8"
+
+[feature.torch-linux-gpu.dependencies]
+# If you use CUDA-aware packages, keep these Linux-only
+cuda-version = "12.8.*"
+pytorch = ">=2.8,<3"
+torchvision = ">=0.24,<0.25"
+
+[feature.torch-linux-gpu.pypi-dependencies]
+# GPU training dependencies (CUDA 12.8+)
+tensorrt-cu12 = "*"
+torch-tensorrt = "*"
+
+# -----------------------------
+# Environments
+# -----------------------------
+[environments]
+# What "pixi install" installs by default (mac dev; avoids Linux resolution on macOS)
+default = ["core", "dev"]
+
+# MacOS GPU runtime/training envs (explicit selection on macOS)
+macos-dev = ["core", "dev", "torch-macos"]
+
+# Linux GPU runtime/training envs (explicit selection on Linux)
+linux-gpu = ["core", "torch-linux-gpu"]
+linux-gpu-dev = ["core", "dev", "torch-linux-gpu"]
