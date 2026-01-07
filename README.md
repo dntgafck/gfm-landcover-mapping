@@ -142,7 +142,7 @@ cd gfm-landcover-mapping
 The `setup.sh` script:
 
 - Detects your platform (macOS/Linux)
-- Installs [pixi](https://prefix.dev/) package manager if missing
+- Installs [pixi](https://prefix.dev/tools/pixi) package manager if missing
 - Installs all dependencies (PyTorch, rasterio, GDAL, etc.)
 - Verifies the installation
 
@@ -152,6 +152,85 @@ The `setup.sh` script:
 | --------------------- | --------------- | ------------- |
 | macOS (Apple Silicon) | MPS             | ✅ Apple GPU  |
 | Linux                 | CUDA 12.x       | ✅ NVIDIA GPU |
+
+### Why Pixi? (Avoiding "GDAL Hell")
+
+This project uses [Pixi](https://prefix.dev/tools/pixi) as the dependency
+manager instead of the traditional conda + pip/uv approach. Here's why:
+
+#### The Problem: "GDAL Hell"
+
+Geospatial Python projects depend on **compiled C/C++ libraries** like GDAL,
+PROJ, GEOS, and rasterio. These libraries have complex interdependencies and
+require exact version matching between:
+
+- The compiled binaries (GDAL, PROJ, GEOS)
+- Python bindings (rasterio, fiona, pyproj, shapely)
+- System libraries (libgdal, libproj, etc.)
+
+**"GDAL Hell"** refers to the common pain of:
+
+1. **Binary incompatibilities** — `pip install rasterio` downloads wheels
+   compiled against GDAL 3.6, but your conda environment has GDAL 3.8 →
+   `ImportError` or silent data corruption
+2. **Mixed package managers** — Conda installs GDAL, pip/uv installs rasterio →
+   different library versions, broken links
+3. **Platform-specific builds** — macOS ARM64 vs. Intel, Linux with/without CUDA
+   → different binary requirements
+4. **Version conflicts** — PyTorch needs specific NumPy, rasterio needs specific
+   GDAL, versions clash
+5. **Broken environments** — Hours spent debugging
+   `Library not loaded: @rpath/libgdal.dylib`
+
+A typical failure mode with conda + uv:
+
+```
+# Create conda env with GDAL
+conda install gdal rasterio -c conda-forge
+
+# Later, install ML packages with uv
+uv pip install pytorch-lightning torch
+
+# Result: uv overwrites numpy/other packages,
+# breaking rasterio's link to conda's GDAL
+# → "ImportError: libgdal.so: cannot open shared object file"
+```
+
+#### The Solution: Pixi
+
+[Pixi](https://prefix.dev/) solves this by:
+
+1. **Single resolver** — One tool resolves both conda-forge packages (GDAL,
+   PROJ, GEOS) AND PyPI packages (PyTorch Lightning, Hydra) together
+2. **Lockfile** — `pixi.lock` captures exact versions of ALL dependencies
+   (conda + PyPI) for reproducibility
+3. **Platform-aware** — Automatically selects correct binaries for macOS ARM64
+   vs. Linux x64
+4. **No mixing** — Never mix conda-installed and pip-installed versions of the
+   same package
+5. **Fast** — Uses Rust-based resolver, much faster than conda
+
+**Configuration** (`pixi.toml`):
+
+```toml
+[dependencies]
+# Compiled geospatial stack from conda-forge
+gdal = "*"
+rasterio = "*"
+pyproj = "*"
+shapely = "*"
+
+[pypi-dependencies]
+# ML packages from PyPI
+pytorch-lightning = ">=2.6.0"
+hydra-core = ">=1.3.2"
+```
+
+Pixi ensures GDAL, rasterio, and their dependencies come from conda-forge with
+matching versions, while ML packages come from PyPI without conflicts.
+
+**Result:** Setup that "just works" on both macOS and Linux, with a single
+`./setup.sh` command.
 
 ---
 
