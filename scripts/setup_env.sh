@@ -58,11 +58,11 @@ echo "Python: $PYTHON_VERSION"
 # Detect platform
 if [[ "$(uname -s)" == "Linux" ]]; then
     PLATFORM="linux"
-    CONDA_ENV_FILE="env/environment.linux.yml"
+    CONDA_ENV_FILE="environment.linux.yml"
     echo "Platform: Linux (CUDA support)"
 elif [[ "$(uname -s)" == "Darwin" ]]; then
     PLATFORM="macos"
-    CONDA_ENV_FILE="env/environment.macos.yml"
+    CONDA_ENV_FILE="environment.macos.yml"
     echo "Platform: macOS (MPS support)"
 else
     echo "Error: Unsupported platform: $(uname -s)"
