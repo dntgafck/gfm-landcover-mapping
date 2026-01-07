@@ -212,7 +212,6 @@ The base `setup_env.sh` script supports multiple flags:
 - PyTorch with platform-specific optimizations:
   - macOS: CPU/MPS support
   - Linux: CUDA 12.1 support
-- Linux-only: TensorRT and torch-tensorrt for inference optimization
 
 **PyPI packages** (`uv.lock`):
 
@@ -254,9 +253,15 @@ git commit -m "Update dependencies"
 ./scripts/setup_env.sh --refresh-conda --dev
 ```
 
-**Missing TensorRT (Linux):** TensorRT and torch-tensorrt are automatically
-installed via conda on Linux when using `--train`. If issues occur, the conda
-environment file can be updated.
+**TensorRT (Linux only):** TensorRT and torch-tensorrt are automatically
+installed via uv on Linux when using `--train`. This is optional for GPU
+inference optimization. If installation fails, you can skip it or install
+manually:
+
+```bash
+conda activate gfm
+uv pip install tensorrt torch-tensorrt
+```
 
 **Import errors after setup:** Ensure you've activated the environment:
 

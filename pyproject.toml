@@ -42,7 +42,8 @@ train = [
 ]
 
 # GPU training dependencies (Linux-only)
-# Note: tensorrt and torch-tensorrt are installed via conda on Linux
+# Note: TensorRT and torch-tensorrt should be installed separately on Linux
+# due to platform-specific build requirements. See README for installation.
 train-gpu = [
     "onnx",
     "onnxscript>=0.1.0",
