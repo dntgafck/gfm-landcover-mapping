@@ -223,6 +223,6 @@ data
 .DS_Store
 outputs/
 mlflow/
-runs/
-!runs/**/*.dvc
+runs
+!runs/*.dvc
 .idea/

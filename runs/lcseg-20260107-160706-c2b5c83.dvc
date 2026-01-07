@@ -1,0 +1,6 @@
+outs:
+- md5: 89a1905c1caf23ec2d6df252ab136d04.dir
+  size: 55215008
+  nfiles: 15
+  hash: md5
+  path: lcseg-20260107-160706-c2b5c83
