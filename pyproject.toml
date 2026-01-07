@@ -23,6 +23,7 @@ dependencies = [
     "pytorch-lightning>=2.6.0,<3",
     "torchmetrics>=1.8.2,<2",
     "mlflow",
+    "dvc[s3]>=3.65.0,<4",
 ]
 
 [project.optional-dependencies]
@@ -32,8 +33,7 @@ dev = [
     "pytest",
     "jupyterlab",
     "seaborn>=0.13.2,<0.14",
-    "ipykernel",
-    "dvc[s3]>=3.65.0,<4",
+    "ipykernel"
 ]
 
 # Training dependencies
