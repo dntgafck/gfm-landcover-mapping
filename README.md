@@ -205,7 +205,7 @@ The base `setup_env.sh` script supports multiple flags:
 
 ### Architecture
 
-**Conda environments** (`env/environment.{macos,linux}.yml`):
+**Conda environments** (`environment.{macos,linux}.yml`):
 
 - Python 3.11
 - Geospatial libraries: GDAL, rasterio, fiona, proj, geos, pyproj, shapely

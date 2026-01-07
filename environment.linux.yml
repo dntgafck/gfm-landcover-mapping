@@ -1,0 +1,28 @@
+# Linux conda environment specification
+# System/compiled dependencies only - PyPI packages managed by uv.lock
+name: gfm
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  # Python version
+  - python=3.11
+
+  # Geospatial stack (compiled libraries)
+  - gdal
+  - rasterio
+  - fiona
+  - proj
+  - geos
+  - pyproj
+  - shapely
+
+  # PyTorch for Linux with CUDA support
+  - pytorch>=2.5
+  - torchvision>=0.20
+  - pytorch-cuda=12.1
+
+  # NumPy (required by geospatial libs)
+  - numpy>=2.4.0,<3
