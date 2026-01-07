@@ -110,27 +110,53 @@ def render_side_by_side(
     Returns:
         PIL Image with both visualizations (and optional legend)
     """
+    from PIL import ImageDraw
+
     pred_rgb = apply_colormap(pred.astype(np.uint8))
     label_rgb = apply_colormap(label.astype(np.uint8))
 
     h, w, _ = pred_rgb.shape
+    header_height = 20
 
-    # Create combined image with gap
-    combined = np.full((h, w * 2 + gap, 3), gap_color, dtype=np.uint8)
-    combined[:, :w] = pred_rgb
-    combined[:, w + gap :] = label_rgb
+    # Create combined image with gap and header
+    combined_w = w * 2 + gap
+    combined_h = h + header_height
 
-    map_img = Image.fromarray(combined, mode="RGB")
+    map_img = Image.new("RGB", (combined_w, combined_h), (255, 255, 255))
+
+    # Paste images
+    map_img.paste(Image.fromarray(pred_rgb), (0, header_height))
+    map_img.paste(Image.fromarray(label_rgb), (w + gap, header_height))
+
+    # Draw headers
+    draw = ImageDraw.Draw(map_img)
+
+    # approximate centering for default font
+    pred_text = "Prediction"
+    label_text = "Label"
+
+    # Use textlength if available (Pillow >= 9.2), otherwise estimate
+    try:
+        pred_w = draw.textlength(pred_text)
+        label_w = draw.textlength(label_text)
+    except AttributeError:
+        pred_w = len(pred_text) * 6
+        label_w = len(label_text) * 6
+
+    draw.text(((w - pred_w) / 2, 2), pred_text, fill=(0, 0, 0))
+    draw.text((w + gap + (w - label_w) / 2, 2), label_text, fill=(0, 0, 0))
 
     if not with_legend:
         return map_img
 
     # Add legend
     legend = create_legend_image(width=180, item_height=22)
-    canvas_w = w * 2 + gap + legend.width + 10
-    canvas = Image.new("RGB", (canvas_w, max(h, legend.height)), (255, 255, 255))
+    canvas_w = combined_w + legend.width + 10
+    canvas_h = max(combined_h, legend.height)
+
+    canvas = Image.new("RGB", (canvas_w, canvas_h), (255, 255, 255))
     canvas.paste(map_img, (0, 0))
-    canvas.paste(legend, (w * 2 + gap + 10, 5))
+    canvas.paste(legend, (combined_w + 10, 5))
 
     return canvas
 
