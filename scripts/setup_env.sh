@@ -12,6 +12,10 @@
 #   ./scripts/setup_env.sh --train --frozen   # Frozen install (no lock changes, for CI/remote)
 #   ./scripts/setup_env.sh --refresh-conda    # Force recreate conda env
 #   ./scripts/setup_env.sh --lock             # Regenerate uv.lock (deliberate action)
+#   ./scripts/setup_env.sh --activate         # Activate env after setup (requires sourcing)
+#
+# To activate the environment in your current shell after setup:
+#   source ./scripts/setup_env.sh --activate
 
 set -euo pipefail
 
@@ -24,6 +28,7 @@ INSTALL_TRAIN=false
 REFRESH_CONDA=false
 REGENERATE_LOCK=false
 FROZEN_INSTALL=false
+ACTIVATE_ENV=false
 
 # Parse arguments
 for arg in "$@"; do
@@ -43,9 +48,12 @@ for arg in "$@"; do
         --frozen)
             FROZEN_INSTALL=true
             ;;
+        --activate)
+            ACTIVATE_ENV=true
+            ;;
         *)
             echo "Unknown argument: $arg"
-            echo "Usage: $0 [--dev] [--train] [--refresh-conda] [--lock] [--frozen]"
+            echo "Usage: $0 [--dev] [--train] [--refresh-conda] [--lock] [--frozen] [--activate]"
             exit 1
             ;;
     esac
@@ -79,6 +87,7 @@ echo "  - Install train deps: $INSTALL_TRAIN"
 echo "  - Refresh conda: $REFRESH_CONDA"
 echo "  - Regenerate lock: $REGENERATE_LOCK"
 echo "  - Frozen install: $FROZEN_INSTALL"
+echo "  - Activate after setup: $ACTIVATE_ENV"
 echo ""
 
 # Check prerequisites
@@ -252,9 +261,24 @@ if [[ $? -eq 0 ]]; then
     echo ""
     echo "=== Setup complete! ==="
     echo ""
-    echo "Activate the environment with:"
-    echo "  conda activate $ENV_NAME"
-    echo ""
+
+    # Activate the environment if requested
+    if [[ "$ACTIVATE_ENV" == true ]]; then
+        echo "Activating conda environment: $ENV_NAME"
+        # Initialize conda for the current shell
+        eval "$(conda shell.bash hook)"
+        conda activate "$ENV_NAME"
+        echo "✓ Environment '$ENV_NAME' is now active"
+        echo ""
+    else
+        echo "Activate the environment with:"
+        echo "  conda activate $ENV_NAME"
+        echo ""
+        echo "Or re-run this script with --activate (must be sourced):"
+        echo "  source ./scripts/setup_env.sh --activate"
+        echo ""
+    fi
+
     if [[ "$INSTALL_DEV" == false && "$INSTALL_TRAIN" == false ]]; then
         echo "To install additional dependencies:"
         echo "  ./scripts/setup_env.sh --dev          # Development tools"
