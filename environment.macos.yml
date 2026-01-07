@@ -1,0 +1,25 @@
+# macOS conda environment specification
+# System/compiled dependencies only - PyPI packages managed by uv.lock
+name: gfm
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Python version
+  - python=3.11
+
+  # Geospatial stack (compiled libraries)
+  - gdal
+  - rasterio
+  - fiona
+  - proj
+  - geos
+  - pyproj
+  - shapely
+
+  # PyTorch for macOS (CPU/MPS support)
+  - pytorch>=2.5
+  - torchvision>=0.20
+
+  # NumPy (required by geospatial libs)
+  - numpy>=2.4.0,<3
