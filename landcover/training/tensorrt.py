@@ -39,8 +39,12 @@ def _export_to_tensorrt(
 
         logger.info("Converting to TensorRT using torch-tensorrt...")
 
-        # Prepare input sample
-        input_sample = torch.randn(1, cfg.model.in_channels, 256, 256).cpu()
+        # Determine device - use cuda if available, otherwise cpu
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        export_module = export_module.to(device)
+
+        # Prepare input sample on the same device as the model
+        input_sample = torch.randn(1, cfg.model.in_channels, 256, 256).to(device)
 
         # Compile with TensorRT
         trt_model = torch_tensorrt.compile(
@@ -96,19 +100,27 @@ def _export_to_tensorrt_onnx(
         # Create builder and config
         builder = trt.Builder(logger_t)
         config = builder.create_builder_config()
-        config.max_workspace_size = tensorrt_cfg.get(
-            "workspace_size", 1073741824
-        )  # 1GB
+
+        # Set workspace size using the new API (TensorRT 8.4+)
+        workspace_size = tensorrt_cfg.get("workspace_size", 1073741824)  # 1GB
+        try:
+            # New API for TensorRT 8.4+
+            config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, workspace_size)
+        except AttributeError:
+            # Fallback to old API for older TensorRT versions
+            config.max_workspace_size = workspace_size
 
         # Set precision
         precision = tensorrt_cfg.get("precision", "fp16")
         if precision == "fp16":
-            config.set_flag(trt.BuilderConfig.FP16)
+            config.set_flag(trt.BuilderFlag.FP16)
         elif precision == "int8":
-            config.set_flag(trt.BuilderConfig.INT8)
+            config.set_flag(trt.BuilderFlag.INT8)
 
-        # Build engine
-        network = builder.create_network()
+        # Build engine - need explicit batch flag for ONNX parser
+        network = builder.create_network(
+            1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+        )
         parser = trt.OnnxParser(network, logger_t)
 
         # Load ONNX model
