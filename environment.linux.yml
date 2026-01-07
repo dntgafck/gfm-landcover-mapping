@@ -21,8 +21,8 @@ dependencies:
 
   # PyTorch for Linux with CUDA support
   - pytorch>=2.8
-  - torchvision>=0.20
-  - pytorch-cuda=12.8
+  - torchvision>=0.23
+  - pytorch-cuda>=12.8
 
   # NumPy (required by geospatial libs)
   - numpy>=2.4.0,<3
