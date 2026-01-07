@@ -146,20 +146,20 @@ except ImportError as e:
     print(f'✗ Fire import failed: {e}')
     sys.exit(1)
 
-# Check optional TensorRT (Linux only)
+# Check optional ONNX Runtime GPU (Linux only)
 import platform
 if platform.system() == 'Linux':
     try:
-        import tensorrt
-        print(f'✓ TensorRT: {tensorrt.__version__}')
+        import onnxruntime
+        providers = onnxruntime.get_available_providers()
+        print(f'✓ ONNX Runtime: {onnxruntime.__version__}')
+        print(f'  - Providers: {providers}')
+        if 'CUDAExecutionProvider' in providers:
+            print('  - CUDA inference: enabled')
+        if 'TensorrtExecutionProvider' in providers:
+            print('  - TensorRT inference: enabled')
     except ImportError:
-        print('ℹ TensorRT not available (optional for GPU training)')
-
-    try:
-        import torch_tensorrt
-        print(f'✓ torch-tensorrt: {torch_tensorrt.__version__}')
-    except ImportError:
-        print('ℹ torch-tensorrt not available (optional for GPU training)')
+        print('ℹ onnxruntime-gpu not available (optional for GPU inference)')
 
 print()
 print('All core imports successful!')

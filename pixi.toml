@@ -78,9 +78,9 @@ pytest = "*"
 seaborn = ">=0.13.2, <0.14"
 
 [target.linux-64.pypi-dependencies]
-# GPU training extras (Linux only)
-tensorrt = "==10.*"
-torch-tensorrt = "==2.9.0"
+# GPU inference via ONNX Runtime TensorRT provider
+# Install onnxruntime-gpu to enable CUDAExecutionProvider and TensorrtExecutionProvider
+onnxruntime-gpu = ">=1.19.0"
 
 [environments]
 # Default is your main runtime env

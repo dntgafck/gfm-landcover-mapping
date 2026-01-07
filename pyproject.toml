@@ -24,6 +24,12 @@ dependencies = [
     "torchmetrics>=1.8.2,<2",
     "mlflow",
     "dvc[s3]>=3.65.0,<4",
+    # Inference server
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    "onnxruntime>=1.19.0",
+    "python-multipart>=0.0.20",
+    "pillow>=10.0.0",
 ]
 
 [project.optional-dependencies]
@@ -43,11 +49,15 @@ train = [
 ]
 
 # GPU training dependencies (Linux-only)
+# TensorRT inference is available via onnxruntime-gpu (TensorrtExecutionProvider)
 train-gpu = [
     "onnx",
     "onnxscript>=0.1.0",
-    "tensorrt; sys_platform == 'linux'",
-    "torch-tensorrt; sys_platform == 'linux'",
+]
+
+# GPU inference dependencies (Linux-only)
+inference-gpu = [
+    "onnxruntime-gpu>=1.19.0; sys_platform == 'linux'",
 ]
 
 [build-system]
